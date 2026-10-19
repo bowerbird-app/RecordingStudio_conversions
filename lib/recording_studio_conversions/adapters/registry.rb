@@ -106,13 +106,10 @@ module RecordingStudioConversions
         report_conversion_events!(symbol, unknown)
       end
 
-      # raise_errors defaults to false and wins when it is true or false.
-      # nil follows eager_load, same gate as UserConfirmation.assert_confirmable!.
+      # raise_errors defaults to false and can only escalate a warning to a raise.
+      # eager_load still raises, matching UserConfirmation.assert_confirmable!.
       def conversion_event_error?
-        flag = RecordingStudioConversions.configuration.raise_errors
-        return UserConfirmation.eager_load? if flag.nil?
-
-        flag
+        RecordingStudioConversions.configuration.raise_errors || UserConfirmation.eager_load?
       end
 
       def report_conversion_events!(symbol, unknown)

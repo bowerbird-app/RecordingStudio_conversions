@@ -289,7 +289,7 @@ class AdaptersTest < Minitest::Test
 
   def test_check_raises_a_missing_rule_when_eager_load_is_on
     configuration = missing_rule_configuration
-    configuration.raise_errors = nil
+    assert_equal false, configuration.raise_errors
 
     with_boot_context(eager_load: true) do |logger|
       error = assert_raises(ArgumentError) { RecordingStudioConversions.check! }
@@ -300,7 +300,7 @@ class AdaptersTest < Minitest::Test
 
   def test_check_warns_a_missing_rule_when_eager_load_is_off
     configuration = missing_rule_configuration
-    configuration.raise_errors = nil
+    assert_equal false, configuration.raise_errors
 
     with_boot_context(eager_load: false) do |logger|
       RecordingStudioConversions.check!
@@ -319,13 +319,14 @@ class AdaptersTest < Minitest::Test
     end
   end
 
-  def test_check_warns_when_raise_errors_is_false_and_eager_load_is_on
+  def test_check_raises_when_raise_errors_is_false_and_eager_load_is_on
     configuration = missing_rule_configuration
     configuration.raise_errors = false
 
     with_boot_context(eager_load: true) do |logger|
-      RecordingStudioConversions.check!
-      assert_equal [boot_warning], logger.warnings
+      error = assert_raises(ArgumentError) { RecordingStudioConversions.check! }
+      assert_equal missing_rule_message, error.message
+      assert_empty logger.warnings
     end
   end
 
