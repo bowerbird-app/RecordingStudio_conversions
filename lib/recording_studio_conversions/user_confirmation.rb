@@ -20,8 +20,7 @@ module RecordingStudioConversions
 
     def assert_confirmable!
       klass = safe_user_class
-      return if klass.nil?
-      return unless klass.respond_to?(:table_exists?) && klass.table_exists?
+      return if klass.nil? || !table_ready?(klass)
       return if klass.method_defined?(:confirmed?)
 
       raise ConfigurationError, "#{klass.name} must implement confirmed?. " \
@@ -34,6 +33,12 @@ module RecordingStudioConversions
       return if name.blank?
 
       name.safe_constantize
+    end
+
+    def table_ready?(klass)
+      klass.respond_to?(:table_exists?) && klass.table_exists?
+    rescue ::ActiveRecord::NoDatabaseError, ::ActiveRecord::ConnectionNotEstablished
+      false
     end
 
     def user_class_name

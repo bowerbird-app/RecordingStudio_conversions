@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "test_helper"
+require "active_record"
 
 class UserConfirmationTest < Minitest::Test
   TEMPORARY_CLASSES = %i[ConversionsConfirmableUser ConversionsPlainUser ConversionsUserWithoutTable].freeze
@@ -26,6 +27,17 @@ class UserConfirmationTest < Minitest::Test
 
   def test_assert_confirmable_skips_a_blank_class_name
     @configuration.user_class_name = ""
+
+    assert_nil RecordingStudioConversions::UserConfirmation.assert_confirmable!
+  end
+
+  def test_assert_confirmable_skips_when_the_database_does_not_exist
+    Object.const_set(:ConversionsUserWithoutTable, Class.new do
+      def self.table_exists?
+        raise ActiveRecord::NoDatabaseError
+      end
+    end)
+    @configuration.user_class_name = "ConversionsUserWithoutTable"
 
     assert_nil RecordingStudioConversions::UserConfirmation.assert_confirmable!
   end
