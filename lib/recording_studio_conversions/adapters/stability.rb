@@ -2,9 +2,12 @@
 
 module RecordingStudioConversions
   module Adapters
-    # Provider classes must survive a development reload. Named classes in lib/
-    # or in a gem do. Anonymous classes and classes Zeitwerk reloads from app/
-    # do not. Duplicate registry keys are rejected before this runs.
+    # Provider classes must survive a development reload. Registration asks
+    # Rails.autoloaders.main whether Zeitwerk will unload the constant.
+    # A required file, an autoload-once path, and a gem class are not unloaded.
+    # Anonymous classes are rejected here. The registry turns a repeated
+    # registration of the same class into a no-op before this runs, and raises
+    # "already registered" for a different class on that key.
     module Stability
       module_function
 
@@ -16,27 +19,18 @@ module RecordingStudioConversions
       end
 
       def reloadable?(adapter_class)
-        file = source_file(adapter_class)
-        return false unless file
+        loader = main_autoloader
+        return false unless loader
 
-        reloadable_directories.any? { |dir| inside?(file, dir) }
+        loader.unloadable_cpath?(adapter_class.name.to_s)
       end
 
-      def source_file(adapter_class)
-        Object.const_source_location(adapter_class.name)&.first
-      end
+      def main_autoloader
+        return unless defined?(Rails)
+        return unless Rails.respond_to?(:application)
+        return unless Rails.application
 
-      def reloadable_directories
-        application = defined?(Rails) && Rails.respond_to?(:application) ? Rails.application : nil
-        return [] unless application
-
-        Rails.autoloaders.main.dirs
-      end
-
-      def inside?(file, dir)
-        root = File.expand_path(dir.to_s)
-        expanded = File.expand_path(file)
-        expanded == root || expanded.start_with?("#{root}#{File::SEPARATOR}")
+        Rails.autoloaders.main
       end
 
       def anonymous_message(key)

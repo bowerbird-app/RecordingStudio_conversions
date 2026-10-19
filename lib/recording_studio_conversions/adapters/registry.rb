@@ -7,10 +7,19 @@ module RecordingStudioConversions
         @adapters = {}
       end
 
-      def register(key, adapter_class, subscriptions: [])
+      def register(key, adapter_class, subscriptions: [], rules: [])
         symbol = key.to_sym
-        assert_new!(symbol, adapter_class, subscriptions)
+        return @adapters[symbol] if @adapters[symbol].equal?(adapter_class)
+
+        assert_new!(symbol, adapter_class, subscriptions, rules)
         @adapters[symbol] = adapter_class
+      end
+
+      def check!(subscriptions:, rules:)
+        @adapters.each do |symbol, adapter_class|
+          assert_sources!(symbol, adapter_class, subscriptions, rules)
+          assert_conversion_events!(symbol, adapter_class, rules)
+        end
       end
 
       def fetch(key)
@@ -27,7 +36,7 @@ module RecordingStudioConversions
 
       private
 
-      def assert_new!(symbol, adapter_class, subscriptions)
+      def assert_new!(symbol, adapter_class, subscriptions, rules)
         raise ArgumentError, "adapter #{symbol} is already registered" if @adapters.key?(symbol)
         raise ArgumentError, "adapter #{symbol} must inherit from Base" unless adapter?(adapter_class)
 
@@ -35,7 +44,8 @@ module RecordingStudioConversions
         assert_key!(symbol, adapter_class)
         assert_complete!(symbol, adapter_class)
         assert_alternatives!(symbol, adapter_class)
-        assert_subscription_events!(symbol, adapter_class, subscriptions)
+        assert_sources!(symbol, adapter_class, subscriptions, rules)
+        assert_conversion_events!(symbol, adapter_class, rules)
       end
 
       def adapter?(adapter_class)
@@ -68,18 +78,35 @@ module RecordingStudioConversions
         raise ArgumentError, "adapter #{symbol} field #{field.name} alternative #{missing.join(', ')} is not declared"
       end
 
-      def assert_subscription_events!(symbol, adapter_class, subscriptions)
-        return if Array(subscriptions).empty?
+      def assert_sources!(symbol, adapter_class, subscriptions, rules)
+        known = source_names(subscriptions, rules)
+        return if known.empty?
 
-        known = subscriptions.map { |item| item.canonical_name.to_s }
         adapter_class.fields.each { |field| assert_field_events!(symbol, field, known) }
+      end
+
+      def source_names(subscriptions, rules)
+        names = Array(subscriptions).map { |item| item.canonical_name.to_s }
+        names.concat(Array(rules).map { |rule| rule.source.to_s })
+        names.uniq
       end
 
       def assert_field_events!(symbol, field, known)
         unknown = (field.events + field.required_for).uniq - known
         return if unknown.empty?
 
-        raise ArgumentError, "adapter #{symbol} field #{field.name} event #{unknown.join(', ')} is not a subscription"
+        list = unknown.join(", ")
+        raise ArgumentError, "adapter #{symbol} field #{field.name} event #{list} is not a configured source"
+      end
+
+      def assert_conversion_events!(symbol, adapter_class, rules)
+        return if Array(rules).empty?
+
+        known = rules.map { |rule| rule.key.to_s }
+        unknown = adapter_class.conversion_events.keys - known
+        return if unknown.empty?
+
+        raise ArgumentError, "adapter #{symbol} conversion event #{unknown.join(', ')} is not a configured rule"
       end
     end
   end

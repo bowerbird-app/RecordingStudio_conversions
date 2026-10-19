@@ -62,6 +62,8 @@ module RecordingStudioConversions
       "#<#{self.class.name} #{diagnostic_summary}>"
     end
 
+    def to_s = inspect
+
     def pretty_print(printer)
       printer.text(inspect)
     end

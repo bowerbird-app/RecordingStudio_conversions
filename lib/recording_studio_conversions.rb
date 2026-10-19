@@ -23,6 +23,7 @@ module RecordingStudioConversions
 
     def configure
       yield(configuration) if block_given?
+      configuration.adapters.check!(subscriptions: configuration.subscriptions, rules: configuration.rules)
     end
 
     def install!

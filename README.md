@@ -212,35 +212,48 @@ A repeated notification for the same source id updates only a suppressed row. A 
 
 ## Providers (milestone 3)
 
-Provider contracts are named Ruby classes in `lib/` or in a gem. The registry starts empty, and the app boots with no destination. A destination enables an adapter. Option values such as an access token stay on the destination. They are left out of `configuration.to_h`. `inspect` and `pretty_print` on the destination and the configuration print option keys only.
+Provider contracts are named classes that the host's main Zeitwerk loader will not unload. Registration calls `Rails.autoloaders.main.unloadable_cpath?` when Rails is loaded. These classes pass:
 
-A class under `app/` is reloadable in development and registration rejects it. An anonymous class is rejected. Registering the same key twice still raises `already registered`.
+- a class from a gem
+- a host class you `require` from the initializer (a required file is not an unloadable autoload)
+- a class on `config.autoload_lib_once`
+
+Rails 8.1 `config.autoload_lib` adds `lib` to the reloadable autoloader, so a class autoloaded from there is rejected in development. A class under `app/` is rejected for the same reason. An anonymous class is rejected. Registering the same key with the same class object again does nothing. A different class for that key raises `already registered`.
+
+The registry starts empty, and the app boots with no destination. A destination enables an adapter. Option values such as an access token stay on the destination. `inspect`, `to_s`, and `pretty_print` on the destination and the configuration print option keys only. `to_h` omits option values. `Destination.new(**destination.to_h, options: destination.options)` round-trips, with the options passed back in by the caller. `deconstruct_keys` returns the raw options.
 
 ```ruby
-# lib/example_adapter.rb
+# lib/example_adapter.rb — required below, not autoloaded
 class ExampleAdapter < RecordingStudioConversions::Adapters::Base
   key :example
   consent category: :advertising, collection: true, delivery: true
   delivery_channels :server
-  event "purchase", as: "Purchase"
-  event "first_purchase", as: "Subscribe"
+  conversion_event :purchase, as: "Purchase"
+  conversion_event :first_purchase, as: "Subscribe"
 end
 
 RecordingStudioConversions.configure do |config|
+  require Rails.root.join("lib/example_adapter")
+  config.conversion :purchase do
+    source "stripe.invoice_paid"
+  end
+  config.conversion :first_purchase do
+    source "stripe.invoice_paid"
+  end
   config.register_adapter :example, ExampleAdapter
-  config.destination :example, adapter: :example, access_token: ENV["EXAMPLE_ACCESS_TOKEN"]
+  config.destination :example, adapter: :example, access_token: ENV.fetch("EXAMPLE_ACCESS_TOKEN")
 end
 ```
 
-`event` maps a conversion rule name (`Rule#key`). `purchase` and `first_purchase` can share a source and still name different provider events. `event_name_for` reads that rule name.
+`conversion_event` maps a conversion rule key (`Rule#key`), not the source event name. `purchase` and `first_purchase` can share a source and still name different provider events. `event_name_for` reads that rule key. When rules are already configured, each `conversion_event` key must be one of them. `configure` checks again after the block. Field `events` and `required_for` must be configured source names (subscription canonical names, or a rule `source`) when those sources exist.
 
-Attribution and identity fields declare source, required or optional, alternatives, a transform name, consent category, sensitivity, and retention. Every alternative must name another declared field. `transform` is stored and not called. When the configuration has subscriptions, field `events` and `required_for` must be canonical subscription names.
+Attribution and identity fields declare source, required or optional, alternatives, a transform name, consent category, sensitivity, and retention. Every alternative must name another declared field. `transform` is stored and not called.
 
 `sufficient?(available, event_name:, channel: nil)` answers from those declarations. `channel: nil` applies every channel's requirements together, so a server-only required field still counts.
 
-`within_age?` accepts a `Time`, `DateTime`, or `ActiveSupport::TimeWithZone`. A `Date` raises `ArgumentError`. A timestamp more than 5 minutes ahead of now is not within age. That window is clock skew (`Adapters::Queries::FUTURE_CLOCK_SKEW`).
+`within_age?` accepts a `Time`, `DateTime`, or `ActiveSupport::TimeWithZone`. A `Date` raises `ArgumentError`. `nil` and `String` are not within age, including when the adapter sets no max age. A timestamp more than 5 minutes ahead of now is not within age. That window is clock skew (`Adapters::Queries::FUTURE_CLOCK_SKEW`).
 
-`build_payload`, `deliver`, `normalize_error`, and `dedup_id_for` are instance methods and raise `NotImplementedError`. They are instance methods because `deliver` needs that destination's options. This milestone does not collect fields, deliver them, or call a provider.
+`build_payload`, `deliver`, `normalize_error`, and `dedup_id_for` are instance methods and raise `NotImplementedError`. Construct an adapter with `initialize(destination:)` so delivery can read that destination's options. This milestone does not collect fields, deliver them, or call a provider.
 
 ## Tech Stack
 

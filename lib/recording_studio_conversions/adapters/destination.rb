@@ -2,10 +2,10 @@
 
 module RecordingStudioConversions
   module Adapters
-    # A host-enabled provider. Option values stay on the object. to_h, inspect,
-    # and pretty_print publish the option keys only, so an access token is not
-    # copied into diagnostics. to_h uses adapter_key so the hash matches the
-    # member name and can be passed back to Destination.new with options.
+    # A host-enabled provider. Option values stay on the object. inspect, to_s,
+    # and pretty_print publish option keys only. to_h omits option values.
+    # Destination.new(**destination.to_h, options:) round-trips when the caller
+    # passes options back in. deconstruct_keys returns the raw options.
     Destination = Data.define(:key, :adapter_key, :options) do
       def to_h
         { key: key, adapter_key: adapter_key }
@@ -14,6 +14,8 @@ module RecordingStudioConversions
       def inspect
         "#<#{self.class.name} key=#{key.inspect} adapter_key=#{adapter_key.inspect} options=#{redacted_options}>"
       end
+
+      def to_s = inspect
 
       def pretty_print(printer)
         printer.text(inspect)

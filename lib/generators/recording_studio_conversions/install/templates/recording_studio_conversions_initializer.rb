@@ -11,10 +11,12 @@ RecordingStudioConversions.configure do |config|
   # incomplete_expired and unpaid are not excluded unless you add them.
   # config.excluded_subscription_statuses = %w[canceled]
 
-  # Providers are named classes in lib/ or a gem. Classes under app/ are
-  # reloaded in development and registration rejects them, as does an
-  # anonymous class. An empty registry is a valid boot. Option values stay
-  # out of to_h and inspect.
+  # Providers are named classes Zeitwerk will not unload: a gem class, a file
+  # required from this initializer, or config.autoload_lib_once. Classes
+  # autoloaded from app/ or from Rails 8.1 autoload_lib are rejected, as is
+  # an anonymous class. Registering the same class again is a no-op.
+  # An empty registry is a valid boot. Option values stay out of to_h.
+  # inspect and to_s print option keys only. deconstruct_keys returns raw options.
   # config.register_adapter :example, ExampleAdapter
   # config.destination :example, adapter: :example
 end

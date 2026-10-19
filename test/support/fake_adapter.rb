@@ -8,9 +8,9 @@ class FakeAdsAdapter < RecordingStudioConversions::Adapters::Base
   max_event_age 7.days
   browser_module "fake-ads"
 
-  event "trial", as: "StartTrial"
-  event "purchase", as: "Purchase"
-  event "first_purchase", as: "Subscribe"
+  conversion_event :trial, as: "StartTrial"
+  conversion_event :purchase, as: "Purchase"
+  conversion_event :first_purchase, as: "Subscribe"
 
   attribution do
     field :click_id,

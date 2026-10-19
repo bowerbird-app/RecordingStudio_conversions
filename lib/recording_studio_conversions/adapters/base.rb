@@ -9,6 +9,13 @@ module RecordingStudioConversions
       extend Queries
       include Delivery
 
+      attr_reader :destination
+
+      # destination is optional until delivery. M5 can pass it without a new signature.
+      def initialize(destination: nil)
+        @destination = destination
+      end
+
       class << self
         def inherited(subclass)
           super

@@ -17,8 +17,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Root and dummy Gemfiles pin `recording_studio_stripe` at git tag `v0.13.0` with `require: false`. The hand-written Stripe fixture already matches `DomainEvent#instrument_payload` on that tag: the invoice value is integer `amount`, copied from Stripe `amount_paid`.
 
 ### Fixed
-- Destination and configuration `inspect` and `pretty_print` list destination option keys and redact the values.
-- Registration rejects an anonymous or reloadable adapter class. Alternatives must name a declared field. `required_for` and `events` must name a configured subscription. `event_name_for` keys by the conversion rule name. Subclasses copy the parent adapter's declarations. `within_age?` rejects a `Date` and a timestamp more than five minutes in the future.
+- Destination and configuration `inspect`, `to_s`, and `pretty_print` list destination option keys and redact the values. `deconstruct_keys` still returns raw options. `Destination.new(**destination.to_h, options:)` round-trips when the caller passes options back in.
+- Registration uses `Rails.autoloaders.main.unloadable_cpath?` for reloadable classes and rejects an anonymous class. Registering the same class for the same key does nothing. A different class still raises `already registered`.
+- `conversion_event` maps a rule key to a provider event name. When rules or sources are configured, those keys and field `events` / `required_for` names must match. Alternatives must name a declared field. Subclasses copy parent declarations and may override consent, channels, max age, and browser module once. `within_age?` rejects a `Date`, and rejects `nil` or a `String` even when no max age is set. A timestamp more than five minutes in the future is not within age.
 
 ### Upgrade notes
 - Register providers in Ruby with `config.register_adapter` and `config.destination`. Shipping with none configured is valid. Define adapter classes in `lib/` or a gem. Classes under `app/` are reloadable and are rejected.

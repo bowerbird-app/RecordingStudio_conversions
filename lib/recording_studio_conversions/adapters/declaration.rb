@@ -26,10 +26,7 @@ module RecordingStudioConversions
       def consent(category: nil, collection: true, delivery: true)
         return @consent if consent_read?(category, collection, delivery)
 
-        raise ArgumentError, "consent category is required" if category.blank?
-        raise ArgumentError, "consent is already declared" if @consent
-
-        @consent = Consent.build(category: category, collection: collection, delivery: delivery)
+        assign_consent(category, collection, delivery)
       end
 
       def delivery_channels(*names)
@@ -50,12 +47,13 @@ module RecordingStudioConversions
         assign_browser_module(name)
       end
 
-      # Maps a conversion rule name (Rule#key) to the provider event name.
-      # purchase and first_purchase can share a source and still differ here.
-      def event(rule_name, as:)
-        name = rule_name.to_s
-        raise ArgumentError, "event name is required" if name.blank? || as.blank?
-        raise ArgumentError, "event #{name} is already declared" if @event_names.key?(name)
+      # Maps a conversion rule key to the provider event name. The first
+      # argument is Rule#key, not the source event name, so purchase and
+      # first_purchase can share a source and still differ here.
+      def conversion_event(rule_key, as:)
+        name = rule_key.to_s
+        raise ArgumentError, "conversion event name is required" if name.blank? || as.blank?
+        raise ArgumentError, "conversion event #{name} is already declared" if @event_names.key?(name)
 
         @event_names[name] = as.to_s
       end

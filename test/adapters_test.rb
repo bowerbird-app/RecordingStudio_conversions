@@ -1,7 +1,11 @@
 # frozen_string_literal: true
 
 require "test_helper"
+require "json"
 require "pp"
+require "fileutils"
+require "tmpdir"
+require "zeitwerk"
 require_relative "support/fake_adapter"
 
 class AdaptersTest < Minitest::Test
@@ -28,16 +32,26 @@ class AdaptersTest < Minitest::Test
     assert_equal({ key: :ads, adapter_key: :fake }, published)
     refute_includes payload.to_s, "super-secret"
     refute_includes published.to_s, "super-secret"
-    restored = RecordingStudioConversions::Adapters::Destination.new(**published, options: {})
+    destination = @configuration.destination_for(:ads)
+    restored = RecordingStudioConversions::Adapters::Destination.new(**published, options: destination.options)
     assert_equal :fake, restored.adapter_key
+    assert_equal "px_1", restored.options[:pixel_id]
+    assert_equal "super-secret", destination.deconstruct_keys(nil).dig(:options, :access_token)
   end
 
   def test_inspect_and_pretty_print_redact_destination_secrets
     destination = @configuration.destination_for(:ads)
     rendered = PP.pp(@configuration, +"")
+    generated = JSON.generate(destination)
 
     refute_includes destination.inspect, "super-secret"
+    refute_includes destination.to_s, "super-secret"
+    refute_includes "#{destination}", "super-secret" # rubocop:disable Style/RedundantInterpolation
+    refute_includes generated, "super-secret"
     refute_includes @configuration.inspect, "super-secret"
+    refute_includes @configuration.to_s, "super-secret"
+    refute_includes "#{@configuration}", "super-secret" # rubocop:disable Style/RedundantInterpolation
+    refute_includes JSON.generate(@configuration), "super-secret"
     refute_includes rendered, "super-secret"
     assert_includes destination.inspect, "access_token"
     assert_includes @configuration.inspect, "access_token"
@@ -128,11 +142,15 @@ class AdaptersTest < Minitest::Test
     refute other.consent.collection
     assert other.within_age?(now - 10.years, now: now)
     refute other.within_age?(now + 6.minutes, now: now)
+    refute other.within_age?(nil, now: now)
+    refute other.within_age?("2026-10-19", now: now)
     assert_equal :public, other.attribution_fields.first.sensitivity
   end
 
   def test_delivery_methods_raise_until_a_later_milestone
-    adapter = @configuration.adapter_for(:ads).new
+    adapter = @configuration.adapter_for(:ads).new(destination: @configuration.destination_for(:ads))
+    assert_same @configuration.destination_for(:ads), adapter.destination
+    assert_nil @configuration.adapter_for(:ads).new.destination
 
     %i[build_payload deliver normalize_error dedup_id_for].each do |name|
       error = assert_raises(NotImplementedError) { adapter.public_send(name, Object.new) }
@@ -147,14 +165,14 @@ class AdaptersTest < Minitest::Test
       delivery_channels :server
       max_event_age 1.day
       browser_module "parent-ads"
-      event "purchase", as: "Purchase"
+      conversion_event "purchase", as: "Purchase"
       attribution do
         field :click_id, source: :query_parameter, required: false, sensitivity: :identifier
       end
     end
     child = Class.new(parent) do
       key :child_ads
-      event "first_purchase", as: "Subscribe"
+      conversion_event "first_purchase", as: "Subscribe"
       attribution do
         field :extra_id, source: :cookie, required: false, sensitivity: :public
       end
@@ -174,8 +192,49 @@ class AdaptersTest < Minitest::Test
     assert_equal :advertising, child.consent.category
   end
 
+  def test_subclasses_can_override_inherited_declarations_once
+    parent = named_adapter(:OverrideParent) do
+      key :override_parent
+      consent category: :advertising
+      delivery_channels :server
+      max_event_age 1.day
+      browser_module "parent-ads"
+    end
+    child = Class.new(parent) do
+      consent category: :analytics, collection: false
+      delivery_channels :browser
+      max_event_age 2.days
+      browser_module "child-ads"
+    end
+    self.class.const_set(:OverrideChild, child)
+
+    assert_equal :analytics, child.consent.category
+    refute child.consent.collection
+    assert_equal [:browser], child.delivery_channels
+    assert_equal 2.days, child.max_event_age
+    assert_equal "child-ads", child.browser_module
+    assert_equal :advertising, parent.consent.category
+    assert_equal [:server], parent.delivery_channels
+    assert_equal 1.day, parent.max_event_age
+    assert_equal "parent-ads", parent.browser_module
+
+    error = assert_raises(ArgumentError) { child.consent category: :advertising }
+    assert_match(/already declared/, error.message)
+    assert_raises(ArgumentError) { child.delivery_channels :server }
+    assert_raises(ArgumentError) { child.max_event_age 3.days }
+    assert_raises(ArgumentError) { child.browser_module "again" }
+  end
+
   def test_registration_rejects_incomplete_or_duplicate_providers
-    duplicate = assert_raises(ArgumentError) { @configuration.register_adapter :fake, FakeAdsAdapter }
+    @configuration.register_adapter :fake, FakeAdsAdapter
+    assert_equal FakeAdsAdapter, @configuration.adapters.fetch(:fake)
+
+    other = named_adapter(:OtherFake) do
+      key :fake
+      consent category: :advertising
+      delivery_channels :server
+    end
+    duplicate = assert_raises(ArgumentError) { @configuration.register_adapter :fake, other }
     assert_match(/already registered/, duplicate.message)
     assert_raises(ArgumentError) { @configuration.register_adapter :other, FakeAdsAdapter }
     assert_raises(ArgumentError) { @configuration.destination :ads, adapter: :fake }
@@ -197,19 +256,31 @@ class AdaptersTest < Minitest::Test
     end
     anon_error = assert_raises(ArgumentError) { @configuration.register_adapter :anon, anonymous }
     assert_match(/anonymous/, anon_error.message)
+    refute_registered_with_zeitwerk
+  end
 
-    reloadable = named_adapter(:ReloadableAds) do
-      key :reloadable
-      consent category: :advertising
-      delivery_channels :server
+  def test_configure_checks_conversion_events_against_rules
+    configuration = RecordingStudioConversions::Configuration.new
+    previous = RecordingStudioConversions.instance_variable_get(:@configuration)
+    RecordingStudioConversions.instance_variable_set(:@configuration, configuration)
+
+    error = assert_raises(ArgumentError) do
+      RecordingStudioConversions.configure do |config|
+        config.conversion(:trial) { source "stripe.trial_started" }
+        config.register_adapter :fake, FakeAdsAdapter
+      end
     end
-    directory = File.dirname(Object.const_source_location(reloadable.name).first)
-    error = nil
-    RecordingStudioConversions::Adapters::Stability.stub(:reloadable_directories, [directory]) do
-      error = assert_raises(ArgumentError) { @configuration.register_adapter :reloadable, reloadable }
+    assert_match(/purchase/, error.message)
+    assert_match(/configured rule/, error.message)
+
+    RecordingStudioConversions.configure do |config|
+      config.conversion(:purchase) { source "stripe.invoice_paid" }
+      config.conversion(:first_purchase) { source "stripe.invoice_paid" }
+      config.register_adapter :fake, FakeAdsAdapter
     end
-    assert_match(/reloadable/, error.message)
-    assert_match(%r{lib/}, error.message)
+    assert configuration.adapters.registered?(:fake)
+  ensure
+    RecordingStudioConversions.instance_variable_set(:@configuration, previous)
   end
 
   def test_registration_checks_alternatives_and_subscription_names
@@ -242,7 +313,7 @@ class AdaptersTest < Minitest::Test
       end
     end
     bad_event = assert_raises(ArgumentError) { @configuration.register_adapter :unknown_event, unknown }
-    assert_match(/not a subscription/, bad_event.message)
+    assert_match(/not a configured source/, bad_event.message)
 
     skipped = RecordingStudioConversions::Configuration.new
     skipped.subscriptions.clear
@@ -297,6 +368,67 @@ class AdaptersTest < Minitest::Test
   end
 
   private
+
+  def refute_registered_with_zeitwerk
+    root = Dir.mktmpdir
+    stable_root = Dir.mktmpdir
+    loader = Zeitwerk::Loader.new
+    previous = Rails.application
+    install_main_loader(loader, root)
+    assert_reloadable_adapter_rejected(loader)
+    assert_required_adapter_accepted(loader, stable_root)
+  ensure
+    Rails.application = previous if defined?(previous)
+    teardown_loader(loader)
+    remove_host_adapter(:ReloadableHostAdapter)
+    remove_host_adapter(:StableHostAdapter)
+    FileUtils.rm_rf(root) if defined?(root) && root
+    FileUtils.rm_rf(stable_root) if defined?(stable_root) && stable_root
+  end
+
+  def install_main_loader(loader, root)
+    write_adapter(root, "reloadable_host_adapter", :reloadable_host)
+    loader.push_dir(root)
+    loader.enable_reloading
+    loader.setup
+    Rails.application = Struct.new(:autoloaders).new(Struct.new(:main).new(loader))
+  end
+
+  def assert_reloadable_adapter_rejected(loader)
+    adapter = ReloadableHostAdapter
+    assert loader.unloadable_cpath?(adapter.name)
+    error = assert_raises(ArgumentError) { @configuration.register_adapter :reloadable_host, adapter }
+    assert_match(/reloadable/, error.message)
+  end
+
+  def assert_required_adapter_accepted(loader, stable_root)
+    write_adapter(stable_root, "stable_host_adapter", :stable_host)
+    require File.join(stable_root, "stable_host_adapter.rb")
+    refute loader.unloadable_cpath?(StableHostAdapter.name)
+    @configuration.register_adapter :stable_host, StableHostAdapter
+    assert @configuration.adapters.registered?(:stable_host)
+  end
+
+  def teardown_loader(loader)
+    loader&.unload
+    loader&.unregister
+  rescue Zeitwerk::SetupRequired
+    loader&.unregister
+  end
+
+  def remove_host_adapter(name)
+    Object.send(:remove_const, name) if Object.const_defined?(name)
+  end
+
+  def write_adapter(dir, file_name, key)
+    File.write(File.join(dir, "#{file_name}.rb"), <<~RUBY)
+      class #{file_name.camelize} < RecordingStudioConversions::Adapters::Base
+        key :#{key}
+        consent category: :advertising
+        delivery_channels :server
+      end
+    RUBY
+  end
 
   def named_adapter(const_name, &)
     klass = Class.new(RecordingStudioConversions::Adapters::Base, &)

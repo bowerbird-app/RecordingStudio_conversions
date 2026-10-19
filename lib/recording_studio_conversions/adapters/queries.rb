@@ -19,6 +19,10 @@ module RecordingStudioConversions
         (attribution_fields + identity_fields).freeze
       end
 
+      def conversion_events
+        @event_names.dup.freeze
+      end
+
       def event_name_for(rule)
         @event_names[rule_key_of(rule)]
       end
@@ -30,12 +34,13 @@ module RecordingStudioConversions
       end
 
       # Accepts Time, DateTime, or ActiveSupport::TimeWithZone. A Date raises.
+      # nil and String are not within age, including when no max age is set.
       # A timestamp more than FUTURE_CLOCK_SKEW ahead of now is not within age.
       def within_age?(occurred_at, now: Time.current)
         timestamp = timestamp_for(occurred_at)
+        return false if timestamp.nil?
         return false if beyond_clock_skew?(timestamp, now)
         return true if @max_event_age.nil?
-        return false if timestamp.nil?
 
         timestamp >= now - @max_event_age
       end
