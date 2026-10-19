@@ -188,7 +188,7 @@ Proposed names follow the Publishable and Users shape: `<fact>.<gem_namespace>`,
 
 ### Views — contract owned by Views
 
-Source name: `"page_view.recorded.recording_studio_views"` (`RecordingStudioViews::PAGE_VIEW_RECORDED` on draft `RecordingStudio_views` pull request 1, `cursor/page-view-collection-3db9`, `029ef69de4ff5395c4dfa29270e8968594daf714`). Canonical subscription name: `"views.recorded"`. Emitted from `PageView` `after_commit on: :create`, so a rolled-back insert does not notify. Schema version is `RecordingStudioViews::PAYLOAD_SCHEMA_VERSION` (`1`).
+Source name: `"page_view.recorded.recording_studio_views"` (`RecordingStudioViews::PAGE_VIEW_RECORDED` on draft `RecordingStudio_views` pull request 1, `cursor/page-view-collection-3db9`, `55412c999bd9022d08abd5f40b2ec9fa3017b7b7`). Canonical subscription name: `"views.recorded"`. Emitted from `PageView` `after_commit on: :create`, so a rolled-back insert does not notify. Schema version is `RecordingStudioViews::PAYLOAD_SCHEMA_VERSION` (`1`).
 
 `PageViewPayload::KEYS` already includes `page_view_id` and `recording_id`. `PageViewPayload.build` publishes:
 
@@ -277,7 +277,7 @@ No change required. Keep `"recordings.event_created"` inside `record!` as histor
 
 ### `RecordingStudio_views`
 
-The repository has to stop being the gem template and become the page-view owner: collector, partitioned log registered through `RecordingStudioLogs.register`, and `"page_view.recorded.recording_studio_views"`. Draft pull request 1 does that, and `PageViewPayload::KEYS` already includes `page_view_id` and `recording_id` (`029ef69de4ff5395c4dfa29270e8968594daf714`). Conversions will not grow a parallel counter. This work stays in the Views repository.
+The repository has to stop being the gem template and become the page-view owner: collector, partitioned log registered through `RecordingStudioLogs.register`, and `"page_view.recorded.recording_studio_views"`. Draft pull request 1 does that, and `PageViewPayload::KEYS` already includes `page_view_id` and `recording_id` (`55412c999bd9022d08abd5f40b2ec9fa3017b7b7`). Conversions will not grow a parallel counter. This work stays in the Views repository.
 
 ### `RecordingStudio_logs`
 
