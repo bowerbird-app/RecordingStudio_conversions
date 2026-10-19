@@ -103,7 +103,24 @@ module RecordingStudioConversions
         unknown = adapter_class.conversion_events.keys - known
         return if unknown.empty?
 
-        raise ArgumentError, "adapter #{symbol} conversion event #{unknown.join(', ')} is not a configured rule"
+        report_conversion_events!(symbol, unknown)
+      end
+
+      # raise_errors defaults to false and wins when it is true or false.
+      # nil follows eager_load, same gate as UserConfirmation.assert_confirmable!.
+      def conversion_event_error?
+        flag = RecordingStudioConversions.configuration.raise_errors
+        return UserConfirmation.eager_load? if flag.nil?
+
+        flag
+      end
+
+      def report_conversion_events!(symbol, unknown)
+        list = unknown.join(", ")
+        message = "adapter #{symbol} conversion event #{list} is not a configured rule"
+        raise ArgumentError, message if conversion_event_error?
+
+        UserConfirmation.warn_boot(message)
       end
     end
   end

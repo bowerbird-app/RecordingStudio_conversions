@@ -281,10 +281,52 @@ class AdaptersTest < Minitest::Test
     assert configuration.adapters.registered?(:fake)
 
     configuration.clear_rules!
+    configuration.raise_errors = true
     configuration.conversion(:trial) { source "stripe.trial_started" }
     error = assert_raises(ArgumentError) { RecordingStudioConversions.check! }
-    assert_match(/purchase/, error.message)
-    assert_match(/configured rule/, error.message)
+    assert_equal missing_rule_message, error.message
+  end
+
+  def test_check_raises_a_missing_rule_when_eager_load_is_on
+    configuration = missing_rule_configuration
+    configuration.raise_errors = nil
+
+    with_boot_context(eager_load: true) do |logger|
+      error = assert_raises(ArgumentError) { RecordingStudioConversions.check! }
+      assert_equal missing_rule_message, error.message
+      assert_empty logger.warnings
+    end
+  end
+
+  def test_check_warns_a_missing_rule_when_eager_load_is_off
+    configuration = missing_rule_configuration
+    configuration.raise_errors = nil
+
+    with_boot_context(eager_load: false) do |logger|
+      RecordingStudioConversions.check!
+      assert_equal [boot_warning], logger.warnings
+    end
+  end
+
+  def test_check_raises_when_raise_errors_is_true_and_eager_load_is_off
+    configuration = missing_rule_configuration
+    configuration.raise_errors = true
+
+    with_boot_context(eager_load: false) do |logger|
+      error = assert_raises(ArgumentError) { RecordingStudioConversions.check! }
+      assert_equal missing_rule_message, error.message
+      assert_empty logger.warnings
+    end
+  end
+
+  def test_check_warns_when_raise_errors_is_false_and_eager_load_is_on
+    configuration = missing_rule_configuration
+    configuration.raise_errors = false
+
+    with_boot_context(eager_load: true) do |logger|
+      RecordingStudioConversions.check!
+      assert_equal [boot_warning], logger.warnings
+    end
   end
 
   def test_overriding_consent_retags_inherited_fields
@@ -521,6 +563,42 @@ class AdaptersTest < Minitest::Test
         delivery_channels :server
       end
     RUBY
+  end
+
+  def missing_rule_configuration
+    configuration = swapped_configuration
+    configuration.register_adapter :fake, FakeAdsAdapter
+    configuration.conversion(:trial) { source "stripe.trial_started" }
+    configuration
+  end
+
+  def missing_rule_message
+    "adapter fake conversion event purchase, first_purchase is not a configured rule"
+  end
+
+  def boot_warning
+    "[RecordingStudioConversions] #{missing_rule_message}"
+  end
+
+  def with_boot_context(eager_load:)
+    previous_application = Rails.application
+    previous_logger = Rails.logger
+    logger = boot_logger
+    config = Struct.new(:eager_load).new(eager_load)
+    Rails.application = Struct.new(:config).new(config)
+    Rails.logger = logger
+    yield logger
+  ensure
+    Rails.application = previous_application
+    Rails.logger = previous_logger
+  end
+
+  def boot_logger
+    logger = Object.new
+    warnings = []
+    logger.define_singleton_method(:warn) { |message| warnings << message }
+    logger.define_singleton_method(:warnings) { warnings }
+    logger
   end
 
   def swapped_configuration
