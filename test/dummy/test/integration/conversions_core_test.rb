@@ -273,6 +273,30 @@ class ConversionsCoreTest < ActiveSupport::TestCase
     refute_equal winner.id, recovered.id
   end
 
+  test "revising a suppressed row into a first-occurrence conflict records already_recorded" do
+    root = create_root
+    user = create_user(confirmed_at: Time.current)
+    RecordingStudioConversions.record_acquisition_user!(root_recording_id: root.id, user_id: user.id)
+    rule :trial, "stripe.trial_started", first_occurrence: true
+    winner, = publish("trial_started.recording_studio_stripe", trial_payload(root))
+    suppressed = winner.dup
+    suppressed.source_event_id = SecureRandom.uuid
+    suppressed.outcome = "suppressed"
+    suppressed.suppression_reason = "unconfirmed_user"
+    suppressed.first_occurrence = false
+    suppressed.save!
+    envelope = RecordingStudioConversions::Envelope.from_record(suppressed)
+    subject = RecordingStudioConversions::AcquisitionSubject.for_root(root.id)
+    change = writer_change("trial", envelope, subject, "matched", nil)
+
+    revised = occurrence_writer(user).save(change)
+
+    assert_equal "matched", winner.reload.outcome
+    assert_equal suppressed.id, revised.id
+    assert_equal "suppressed", revised.outcome
+    assert_equal "already_recorded", revised.suppression_reason
+  end
+
   test "an anonymous page view keeps the payload visitor and recording" do
     root = create_root
     page = RecordingStudio.record!(

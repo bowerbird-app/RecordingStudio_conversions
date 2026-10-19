@@ -58,7 +58,7 @@ module RecordingStudioConversions
     def matches?(envelope)
       return false unless envelope.name == source
       return false unless location_matches?(envelope)
-      return false if invoice_on_canceled_subscription?(envelope)
+      return false if excluded_subscription_status?(envelope)
 
       conditions.all? { |condition| condition.match?(envelope.properties) }
     end
@@ -69,8 +69,15 @@ module RecordingStudioConversions
       root_ok && recording_ok
     end
 
-    def invoice_on_canceled_subscription?(envelope)
-      envelope.name == "stripe.invoice_paid" && envelope.properties["subscription_status"] == "canceled"
+    def excluded_subscription_status?(envelope)
+      return false unless envelope.name == "stripe.invoice_paid"
+
+      status = envelope.properties["subscription_status"]
+      status.present? && excluded_statuses.include?(status)
+    end
+
+    def excluded_statuses
+      Array(RecordingStudioConversions.configuration.excluded_subscription_statuses).map(&:to_s)
     end
   end
 end

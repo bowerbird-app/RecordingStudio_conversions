@@ -14,8 +14,8 @@ module RecordingStudioConversions
 
         Occurrence.create!(attributes(change))
       end
-    rescue ActiveRecord::RecordNotUnique
-      recover(change)
+    rescue ActiveRecord::RecordNotUnique => e
+      recover(change, e)
     end
 
     def revise(existing, change)
@@ -27,13 +27,25 @@ module RecordingStudioConversions
 
     private
 
-    def recover(change)
+    def recover(change, error = nil)
       existing = Occurrence.find_by(rule_key: change.rule.key, source_event_id: change.envelope.source_event_id)
+      return mark_already_recorded(existing) if existing && first_occurrence_conflict?(error)
       return existing if existing
 
       Occurrence.transaction(requires_new: true) do
         Occurrence.create!(attributes(change.with(outcome: "suppressed", reason: "already_recorded")))
       end
+    end
+
+    def first_occurrence_conflict?(error)
+      error&.message.to_s.include?("idx_rs_conversions_first_occurrence_root")
+    end
+
+    def mark_already_recorded(existing)
+      return existing if existing.outcome == "matched"
+
+      existing.update!(outcome: "suppressed", suppression_reason: "already_recorded", first_occurrence: false)
+      existing
     end
 
     def attributes(change)

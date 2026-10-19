@@ -155,7 +155,7 @@ See the [FlatPack README](https://github.com/bowerbird-app/flatpack) for full do
 
 This gem records provider-neutral conversion occurrences. It requires PostgreSQL. The occurrence table uses `jsonb` and partial unique indexes, which SQLite and MySQL do not provide.
 
-The host confirms users with Devise `:confirmable`. A host that does not load RecordingStudio_users needs these four columns on the user table: `confirmation_token`, `confirmed_at`, `confirmation_sent_at`, and `unconfirmed_email`. `bin/rails generate recording_studio_user:migrations` copies them from `add_devise_confirmable_to_users`. `config.user_class_name` defaults to `"User"`, and the install template sets it:
+The host confirms users with Devise `:confirmable`. A host that does not load RecordingStudio_users needs these four columns on the user table: `confirmation_token`, `confirmed_at`, `confirmation_sent_at`, and `unconfirmed_email`. `bin/rails generate recording_studio_user:migrations` copies them from `add_devise_confirmable_to_users`. `confirmed?` alone is not enough: the `confirmed_at` column must exist. `config.user_class_name` defaults to `"User"`. That setting is used only when RecordingStudio_users is not loaded. When it is loaded, `RecordingStudioUser.config.user_class_name` wins, and a different value here warns at boot. A name that does not resolve warns at boot, and raises when `eager_load` is on:
 
 ```ruby
 RecordingStudioConversions.configure do |config|
@@ -166,7 +166,7 @@ end
 
 `raise_errors` stays false in production. A matcher failure instruments `failed.recording_studio_conversions` and logs. It does not raise into the producer. Set `raise_errors` in test when a failure should surface.
 
-Rules are Ruby. Stripe `invoice_paid` has no `trial_fee` key. Match `first_payment` instead. `subscription_status` `"canceled"` does not match. A missing `subscription_status` or `billing_reason` is unknown and does not change the match:
+Rules are Ruby. Stripe `invoice_paid` has no `trial_fee` key. Match `first_payment` instead. Stripe `customer_id` is not stored. `config.excluded_subscription_statuses` defaults to `%w[canceled]`: a paid invoice on a canceled subscription is not a conversion. That list is policy, not a Stripe rule, and a host can replace it. `incomplete_expired` and `unpaid` are not excluded unless added. A missing or blank `subscription_status` or `billing_reason` is unknown and does not change the match. Source ids and user ids must be UUID strings. Any other value is unusable and the event is skipped:
 
 ```ruby
 RecordingStudioConversions.configure do |config|
@@ -196,7 +196,7 @@ Subscriptions, and the payload key used as `source_event_id`:
 | `invoice_paid.recording_studio_stripe` | `stripe.invoice_paid` | `id` |
 | `page_view.recorded.recording_studio_views` | `views.recorded` | `page_view_id` |
 
-After Onboarding creates the workspace, the host records the one acquisition user. A later call replaces that user and does not keep the previous one. A rooted first-occurrence rule still matches only once for that root:
+After Onboarding creates the workspace, the host records the one acquisition user. A later call replaces that user and does not keep the previous one. A rooted first-occurrence rule still matches only once for that root. On `views.recorded`, `first_occurrence!` dedupes per root, not per viewer:
 
 ```ruby
 RecordingStudioConversions.record_acquisition_user!(root_recording_id: root.id, user_id: user.id)

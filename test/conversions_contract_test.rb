@@ -162,10 +162,41 @@ class ConversionsContractTest < Minitest::Test
     refute rule.matches?(canceled)
     assert rule.matches?(unknown)
     assert rule.matches?(active)
+    assert_equal %w[canceled], @configuration.excluded_subscription_statuses
+    refute_includes @configuration.excluded_subscription_statuses, "incomplete_expired"
+    refute_includes @configuration.excluded_subscription_statuses, "unpaid"
     refute unknown.properties.key?("subscription_status")
     refute unknown.properties.key?("billing_reason")
     assert_equal "subscription_cycle", canceled.properties["billing_reason"]
     assert_equal "active", active.properties["subscription_status"]
+
+    @configuration.excluded_subscription_statuses = []
+    assert rule.matches?(canceled)
+    @configuration.excluded_subscription_statuses = %w[canceled unpaid]
+    unpaid = envelope("stripe.invoice_paid", first_payment: true, subscription_status: "unpaid")
+    refute rule.matches?(unpaid)
+  end
+
+  def test_blank_billing_reason_is_unknown_and_false_is_kept
+    envelope = envelope("stripe.invoice_paid", first_payment: false, billing_reason: "", currency: "usd")
+
+    refute envelope.properties.key?("billing_reason")
+    assert_equal false, envelope.properties["first_payment"]
+    assert_equal "usd", envelope.properties["currency"]
+  end
+
+  def test_a_string_schema_version_is_accepted
+    subscription = @configuration.subscriptions.find { |item| item.canonical_name == "stripe.invoice_paid" }
+    envelope = RecordingStudioConversions::Envelope.from(
+      subscription,
+      schema_version: "1",
+      id: SecureRandom.uuid,
+      amount: 1
+    )
+
+    assert_equal 1, envelope.schema_version
+    assert_instance_of Integer, envelope.schema_version
+    assert envelope.usable?
   end
 
   private

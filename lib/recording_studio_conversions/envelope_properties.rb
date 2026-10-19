@@ -45,7 +45,13 @@ module RecordingStudioConversions
     def build(data)
       properties = copied(data)
       properties["query_params"] = query_params(properties["query_params"]) if properties.key?("query_params")
-      properties.compact
+      drop_blank_strings(properties.compact)
+    end
+
+    # Blank strings, including Stripe billing_reason "", are unknown.
+    # false is kept: first_payment false is a real value, and compact_blank would drop it.
+    def drop_blank_strings(properties)
+      properties.reject { |_key, value| value.is_a?(String) && value.blank? }
     end
 
     def copied(data)

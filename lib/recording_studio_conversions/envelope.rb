@@ -12,10 +12,21 @@ module RecordingStudioConversions
     end
 
     def schema_version_for(subscription, data)
+      integer_version(schema_raw(subscription, data))
+    end
+
+    def schema_raw(subscription, data)
       return data[:schema_version] if data.key?(:schema_version)
       return Configuration::SUPPORTED_SCHEMA_VERSION if subscription.canonical_name == "users.registered"
 
       nil
+    end
+
+    def integer_version(value)
+      return value if value.is_a?(Integer)
+      return if value.nil?
+
+      Integer(value, exception: false)
     end
   end
 

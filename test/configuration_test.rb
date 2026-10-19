@@ -36,6 +36,7 @@ class ConfigurationTest < Minitest::Test
 
     assert_equal "User", configuration.user_class_name
     assert_equal false, configuration.raise_errors
+    assert_equal %w[canceled], configuration.excluded_subscription_statuses
     assert_instance_of RecordingStudio::Hooks, configuration.hooks
   end
 

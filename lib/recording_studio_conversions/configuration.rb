@@ -8,7 +8,7 @@ module RecordingStudioConversions
 
     Subscription = Data.define(:source_name, :canonical_name, :id_key)
 
-    attr_accessor :raise_errors, :user_class_name
+    attr_accessor :raise_errors, :user_class_name, :excluded_subscription_statuses
     attr_reader :hooks, :subscriptions, :rules
 
     def initialize
@@ -20,6 +20,7 @@ module RecordingStudioConversions
       @hooks = RecordingStudio::Hooks.new
       @raise_errors = false
       @user_class_name = "User"
+      @excluded_subscription_statuses = %w[canceled]
       @subscriptions = []
       @rules = []
     end

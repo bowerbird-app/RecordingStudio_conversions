@@ -19,10 +19,30 @@ class UserConfirmationTest < Minitest::Test
     end
   end
 
-  def test_assert_confirmable_skips_a_missing_class
+  def test_assert_confirmable_warns_when_the_class_name_is_unresolved
     @configuration.user_class_name = "ConversionsMissingUser"
+    warnings = []
+    confirmation = RecordingStudioConversions::UserConfirmation
 
-    assert_nil RecordingStudioConversions::UserConfirmation.assert_confirmable!
+    confirmation.stub(:eager_load?, false) do
+      confirmation.stub(:warn_boot, ->(message) { warnings << message }) do
+        assert_nil confirmation.assert_confirmable!
+      end
+    end
+
+    assert_match("ConversionsMissingUser", warnings.join)
+  end
+
+  def test_assert_confirmable_raises_when_eager_load_cannot_resolve_the_class
+    @configuration.user_class_name = "ConversionsMissingUser"
+    confirmation = RecordingStudioConversions::UserConfirmation
+
+    confirmation.stub(:eager_load?, true) do
+      error = assert_raises(RecordingStudioConversions::ConfigurationError) do
+        confirmation.assert_confirmable!
+      end
+      assert_match("ConversionsMissingUser", error.message)
+    end
   end
 
   def test_assert_confirmable_skips_a_blank_class_name
@@ -62,6 +82,10 @@ class UserConfirmationTest < Minitest::Test
       def confirmed?
         true
       end
+
+      def self.column_names
+        %w[id confirmed_at]
+      end
     end)
     @configuration.user_class_name = "ConversionsConfirmableUser"
 
@@ -80,5 +104,50 @@ class UserConfirmationTest < Minitest::Test
       RecordingStudioConversions::UserConfirmation.assert_confirmable!
     end
     assert_includes error.message, "confirmed?"
+  end
+
+  def test_assert_confirmable_requires_the_confirmed_at_column
+    Object.const_set(:ConversionsConfirmableUser, Class.new do
+      def self.table_exists?
+        true
+      end
+
+      def self.column_names
+        %w[id]
+      end
+
+      def confirmed?
+        true
+      end
+    end)
+    @configuration.user_class_name = "ConversionsConfirmableUser"
+
+    error = assert_raises(RecordingStudioConversions::ConfigurationError) do
+      RecordingStudioConversions::UserConfirmation.assert_confirmable!
+    end
+    assert_includes error.message, "confirmed_at"
+  end
+
+  def test_a_loaded_users_gem_warns_when_user_class_name_disagrees
+    configured = Module.new do
+      def self.config
+        Struct.new(:user_class_name).new("Account")
+      end
+    end
+    Object.const_set(:RecordingStudioUser, configured)
+    @configuration.user_class_name = "Member"
+    warnings = []
+    confirmation = RecordingStudioConversions::UserConfirmation
+    confirmation.instance_variable_set(:@mismatch_warned, nil)
+
+    confirmation.stub(:warn_boot, ->(message) { warnings << message }) do
+      assert_equal "Account", confirmation.user_class_name
+    end
+
+    assert_match("Member", warnings.join)
+    assert_match("Account", warnings.join)
+  ensure
+    Object.send(:remove_const, :RecordingStudioUser) if Object.const_defined?(:RecordingStudioUser, false)
+    RecordingStudioConversions::UserConfirmation.instance_variable_set(:@mismatch_warned, nil)
   end
 end
