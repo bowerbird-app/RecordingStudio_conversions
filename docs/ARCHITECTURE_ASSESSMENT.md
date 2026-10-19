@@ -202,7 +202,7 @@ The Views gem owns the decision that a view occurred (including once-per-visit i
 | `root_recording_id` | uuid | Nullable for pages outside a workspace. |
 | `path` | string | Request path only. No query string, so click ids stay in the Conversions collector. |
 | `classification` | string | Code-defined, for example `page`, `press_kit`, `recording`. |
-| `visitor_id` | uuid | Optional. Present only if Views and Conversions share a first-party visitor id the host already issued. Otherwise omitted. |
+| `visitor_id` | string | Optional. Root Switchable device key when the request already has one. Views must not mint a second cookie. |
 
 Conversions must not count a Turbo navigation as another canonical view. Matching uses `event_id` as `source_event_id`.
 
@@ -337,19 +337,9 @@ No change. It already consumes registration completion. Conversions must tolerat
 
 All new tables live in the Conversions engine and use UUID primary keys (`gen_random_uuid()`), matching `recording_studio_recordings` (`db/install_migrate/20250101000001_create_recording_studio_recordings.rb`: `id: :uuid`, `recordable_id` uuid, `parent_recording_id`, `root_recording_id`). Recording ids and recordable ids are stored as references. The design has no migration that updates `recording_studio_recordings.id`, `recordable_id`, or `users.id`. Profile recordings created by `record_profile!` keep their ids. Stripe subscription UUIDs and `stripe_id` strings stay in Stripe's tables.
 
-Visitors are not recordings and not recordables. Giving a visitor a row in `recording_studio_recordings` would mint a new recording id for something that is not a recordable and would tempt later remaps. The visitor id is its own UUID.
+Visitors are not recordings and not recordables. Conversions does not mint a visitor UUID and does not set a cookie. The visitor id is Root Switchable's device key, read through one interface. See Marco's decision 8 below.
 
-### `recording_studio_conversions_visitors`
-
-| Column | Notes |
-|---|---|
-| `id` | UUID, the first-party anonymous visitor id. Set once, never updated. |
-| `first_seen_at` | |
-| `created_at` | |
-
-Index: primary key only. No recording foreign key.
-
-The id is issued by the server and stored in a first-party cookie. The browser cannot choose a user id.
+There is no `recording_studio_conversions_visitors` table.
 
 ### `recording_studio_conversions_attribution_observations`
 
@@ -358,7 +348,7 @@ One row per captured field. Historical rows are kept. There is no `fbclid` or `g
 | Column | Notes |
 |---|---|
 | `id` | UUID |
-| `visitor_id` | UUID, not null |
+| `visitor_id` | String, not null. Root Switchable device key. Not a new UUID column. |
 | `root_recording_id` | UUID, nullable. Copied from the page's recording when known. |
 | `provider` | Adapter key, for example `meta` |
 | `field_name` | Declared by that adapter |
@@ -378,7 +368,7 @@ Anonymous visitor to verified user. Written when `"registration.completed.record
 | Column | Notes |
 |---|---|
 | `id` | UUID |
-| `visitor_id` | UUID, not null |
+| `visitor_id` | String, not null. Root Switchable device key. |
 | `user_id` | UUID, not null. This is `users.id`, not a profile recording id. |
 | `method` | `password`, `oauth`, or `otp` |
 | `linked_at` | |
@@ -398,13 +388,11 @@ Host policy result for a workspace. Stripe events carry `root_recording_id` and 
 | `root_recording_id` | UUID, not null. Existing workspace recording id. |
 | `subject_type` | `"User"` |
 | `subject_id` | `users.id` |
-| `policy` | Host policy name |
-| `assigned_at` | |
-| `superseded_at` | Null for the current row |
+| `recorded_at` | When the host wrote the row |
 
-Unique partial index on `root_recording_id` where `superseded_at` is null. Replacing a policy inserts a new row and sets `superseded_at` on the old one. It does not update `subject_id` in place and does not touch the recording id.
+Unique index on `root_recording_id`. Exactly one row per workspace root. The host writes it after Onboarding creates the workspace. Replacing the user updates `subject_id` on that row. The root recording id is not rewritten.
 
-If the resolver returns nothing, no row is written. The conversion stays unresolved and is visible as such. Another workspace member is not substituted.
+If the host has not written a row, a later workspace event stays unresolved. Another member is not substituted.
 
 ### `recording_studio_conversions_occurrences`
 
@@ -423,7 +411,7 @@ Durable only after a rule matches, or when a match is suppressed for a reason op
 | `subject_type`, `subject_id` | Subscription, invoice, recording, or user |
 | `actor_type`, `actor_id` | Who did it, when known |
 | `attribution_subject_type`, `attribution_subject_id` | Host policy result. Nullable when unresolved. |
-| `visitor_id` | Nullable |
+| `visitor_id` | Nullable string. Root Switchable device key when `Current.device_key` is already set. |
 | `properties` | Mapped, non-PII properties (`amount`, `currency`, `first_payment`) |
 | `outcome` | `matched` or `suppressed` |
 | `suppression_reason` | Nullable |
@@ -467,10 +455,10 @@ Conversion rules, provider field declarations, and destination credentials stay 
 
 ### Identity flow the trial milestone needs
 
-1. Visitor cookie id is `recording_studio_conversions_visitors.id`.
-2. Declared Meta fields land in `attribution_observations` for that visitor.
+1. The visitor id is the device key already in `RecordingStudio::RootSwitchable::Current.device_key`.
+2. Declared Meta fields land in `attribution_observations` for that key.
 3. Registration commits in Users and emits `"registration.completed.recording_studio_user"`.
-4. The same request links `visitor_id` to `users.id` when the cookie is present and the account is confirmed.
+4. The same request links that device key to `users.id` when `Current.device_key` is set and the account is confirmed. Conversions does not write the cookie.
 5. The host resolver returns the acquisition user for the new workspace root and Conversions inserts `acquisition_subjects` for that `root_recording_id`.
 6. A later Stripe `trial_started` carries `root_recording_id` only. Lookup is acquisition subject → user → identity links → observations. A missing link suppresses delivery with a reason. It does not attach another member of the workspace.
 
@@ -499,11 +487,11 @@ Google (`gclid`, `gbraid`, `wbraid`) and TikTok stay unimplemented until their o
 
 M1 is this document.
 
-**M2 — Event and conversion core.** Subscriptions, canonical envelope, code-defined rules, deterministic match, idempotency on `(rule_key, source_event_id)`. Subscribe to the existing Users registration event. Stripe and Views subscriptions are declared and skipped cleanly when the source event does not exist. No provider calls.
+**M2 — Event and conversion core.** Subscriptions, canonical envelope, code-defined rules, deterministic match, idempotency on `(rule_key, source_event_id)`, occurrence rows, and the one-row-per-root acquisition subject the host writes. Subscribe by name to Users, and to the Stripe and Views names even though those gems do not emit them yet. No provider calls.
 
 **M3 — Provider declarations.** Adapter registry and field, consent, channel, and age contracts. A fake adapter in tests. No Meta HTTP yet.
 
-**M4 — Attribution and browser collection.** Visitor id, observation rows, Stimulus tracker, consent, server-side link from visitor to `users.id` on registration. Host `attribution_subject_resolver` and `acquisition_subjects`. Turbo-safe single initialization.
+**M4 — Attribution and browser collection.** Observation rows, consent checks before advertising use of the existing device key, and the server-side link from that key to `users.id` on registration. No new visitor cookie. Turbo-safe single initialization.
 
 **M5 — Durable delivery.** Occurrences, deliveries, attempts, ActiveJob, backoff, consent re-check, Logs registration for diagnostics, Metrics counts. External HTTP still stubbed.
 
@@ -526,19 +514,45 @@ Sibling work that gates M7 and M9 is proposed in section 3. It is not part of th
 3. Page views belong to a future Recording Studio Views gem. The Logs site-view guide is a dummy pattern to copy, not a collector that already exists. Conversions will not count views itself.
 4. Stripe must emit `trial_started` and a true `invoice_paid` after the webhook transaction commits, keyed by the existing unique Stripe event id. Today's `invoice.paid` handler only repairs `past_due` subscriptions and drops amount and currency.
 5. The acquisition user for a workspace is an explicit `acquisition_subjects` row chosen by the host. Stripe customers have no `user_id`, so a trial event cannot imply a user. A missing subject suppresses delivery.
-6. Anonymous identity is a Conversions visitor UUID, linked to `users.id` when a confirmed registration shares that cookie. Recording ids, recordable ids, profile recording ids, and user ids are never rewritten or used as substitutes for each other.
+6. Anonymous identity is Root Switchable's device key, read by Conversions and stored as a string. Conversions does not issue a second cookie. Recording ids, recordable ids, profile recording ids, and user ids are never rewritten or used as substitutes for each other.
 7. Matched conversions and deliveries are durable Conversions tables. The delivery row is the outbox. Page views and other high-volume rows stay in Logs. Provider acceptance is status `accepted`, separate from attribution.
 8. Provider behavior sits behind an adapter. Meta is the first implementation. Google and TikTok are additional adapters and do not change core tables or the shared tracker.
 
+## Decisions from Marco
+
+Recorded 2026-10-19. These close the questions above.
+
+1. **Attachable and Library.** Conversions stays clear of both gems. No dependency and no proposed change.
+2. **Users event.** Do not change `RecordingStudio_users`. Keep `"registration.completed.recording_studio_user"` as `user_id` and `method`. Conversions reads `confirmed_at` from the user row when it handles the event. `created_at` is the wrong signal: OTP inserts the user row before the code is accepted, so `created_at` would treat an unverified account as verified. `confirmed_at` is the timestamp Users already writes when password, OAuth, or OTP registration actually confirms the account (`confirm_password_account!`, Devise `confirm`). A nil `confirmed_at` means the user is not verified. The occurrence stores that timestamp. It does not copy email onto the event.
+3. **Who writes the acquisition user.** The host calls Conversions after Onboarding has created the workspace. Registration still fires before that workspace exists, so Conversions does not guess a root during registration.
+4. **One acquisition user per root.** Decided, not assumed. Exactly one user per workspace root. The schema enforces it with a unique index on `root_recording_id`. The host records the row. Replacing the user updates `subject_id` on that same row and does not rewrite the recording id.
+5. **`invoice_paid` money.** `amount` is Stripe `amount_paid`. `first_payment` means the first paid invoice for that subscription. Stripe still has to put both on the event. Conversions does not recompute them.
+6. **Trial fee and `trial_started`.** A trial-fee invoice is not a paid invoice and must not count as `first_payment`. `trial_started` fires once for a subscription that is created already trialing or that transitions into `trialing`.
+7. **Page views.** They will be built in `RecordingStudio_views`, following the Logs dummy `site_views` design (`resource_type`, `root_recording_id`, `recording_id`). That work is a separate pull request in the Views repo. This repo does not change Views.
+8. **Visitor id.** Reuse Root Switchable's anonymous device key. Do not create a visitor UUID table or a second cookie. Details are in the next section. Conversions reads the key through one interface. That interface's only source is Root Switchable.
+9. **Admin access.** Accessible role `:view` on the admin recording is enough. No dedicated action key.
+10. **Crash after the Stripe commit.** Recover by replaying the webhook row, or by re-fetching from Stripe any value the stored payload cannot rebuild (`amount_paid`, currency). Do not drop the conversion because the in-process notification was lost.
+
+## Root Switchable device key
+
+Repository `bowerbird-app/RecordingStudio_root_switchable`, commit `3627f163233ff206f60d17d13ad2ea21c529a5ea` (2026-10-16, "feat(metrics): pin Metrics 0.3 and document MCP tool names (#45)").
+
+The anonymous id is a device key, not a recording id.
+
+- **Cookie name.** `:recording_studio_root_switchable_device_key`, from `device_key_cookie_name` in `lib/recording_studio_root_switchable/configuration.rb`.
+- **Where it is written.** `RecordingStudio::RootSwitchable::DeviceKey.fetch` (`lib/recording_studio/root_switchable/device_key.rb`) reads `cookies.encrypted[cookie_name]`. If the value is missing it generates `SecureRandom.uuid` and writes that same encrypted cookie. Conversions must not call `fetch`, because that write belongs to Root Switchable. The read path for Conversions is `RecordingStudio::RootSwitchable::Current.device_key`, which `ControllerSupport` sets from `fetch` in a `before_action` (`lib/recording_studio/root_switchable/controller_support.rb`).
+- **Signed or encrypted.** Encrypted, via Rails `cookies.encrypted`. It is not only signed.
+- **Cookie flags.** Default options: `expires: 1.year`, `httponly: true`, `same_site: :lax`, and `secure` in production (`default_secure_cookie?`). `resolved_device_key_cookie_options` forces `httponly: true`. `SECURITY.md` states the same.
+- **Database copy.** `recording_studio_root_switchable_selections.device_key` is a non-null string. The anonymous unique index is `idx_rs_root_switchable_anonymous_device_scope` on `(device_key, scope_key)` where `actor_id` is null (`test/dummy/db/migrate/20260504001000_create_recording_studio_root_switchable_selections.rb`). Anonymous selection rows are off by default: `allow_anonymous_selections` defaults to false. Until a signed-in selection is saved, the key lives only in the cookie.
+- **Lifetime.** The cookie is written when the key is first missing, with `expires: 1.year`. `fetch` does not refresh the expiry on later requests. After a year the browser drops it and the next `fetch` mints a new UUID. There is no other rotation.
+- **Consent.** A search of the gem found no consent check around the cookie. It is set so workspace switching can remember a browser. Nothing in this gem says the key may be used for advertising attribution.
+
+### Open items left by the device key
+
+1. **Consent.** The device-key cookie is not gated on advertising consent. Using it as an attribution visitor id needs a host or Conversions rule that refuses to store or deliver attribution until consent allows it. M2 only copies the key onto a conversion occurrence when Root Switchable has already set `Current.device_key`. It does not start a cookie and it does not decide consent.
+2. **Lifetime and rotation.** A one-year expiry replaces the id with a new UUID. Historical attribution stored under the old key will not follow the browser. Root Switchable does not document a renewal or a stable replacement.
+3. **Anonymous persistence.** With anonymous selections disabled, a logged-out visitor has no database row for the key. If the cookie is cleared, Conversions cannot recover that visitor from Root Switchable's tables.
+
 ## Open questions for Marco
 
-1. Confirm that Conversions has no need of `RecordingStudio_attachable` or `RecordingStudio_library`. None was found. If customer matching later needed an uploaded file or image byte, that would be a new question, and those gems would still not be edited from this repo.
-2. Should Users add `schema_version`, `occurred_at`, and `confirmed` to `"registration.completed.recording_studio_user"`, or should Conversions read `confirmed_at` from the user row and timestamp the occurrence itself? Onboarding ignores unknown keys today (`c8f66f9`).
-3. Who writes `acquisition_subjects`: a host lambda invoked by Conversions when it sees registration and the workspace already exists, or an explicit host call after Onboarding provisions the workspace? Registration currently fires before the workspace exists.
-4. Is one current acquisition user per root recording the rule (partial unique index), or must several users stay eligible? The instruction says the host decides and that the system must not guess.
-5. For `invoice_paid`, should `amount` be the Stripe invoice `amount_paid`, and should `first_payment` mean the first invoice Stripe marks paid for that local subscription? Stripe does not store either value today.
-6. Should a trial that is created already `trialing` emit `trial_started` once, and should a later `invoice.paid` for the trial fee also be eligible as `stripe.invoice_paid`? Product metadata has a trial fee (`RecordingStudioStripe::Trial`).
-7. Views does not exist. Should that gem be built in `RecordingStudio_views` (currently a template at `b57b35a`) before M9, and should its log be the Logs dummy `site_views` shape with `resource_type`, `root_recording_id`, and `recording_id`?
-8. Should the first-party visitor id be new, or is there an existing anonymous device key to reuse? Dummy schemas in other repos contain `idx_rs_root_switchable_anonymous_device_scope`. `RecordingStudio_root_switchable` itself was not cloned. **Unverified** whether that device key is stable, first-party, and appropriate for advertising.
-9. Admin access: is Accessible role `:view` on the admin recording enough, or do you want a dedicated action key `:"recording_studio_conversions.view_operations"`?
-10. Webhook replay: if the process dies after the Stripe transaction commits and before `after_all_transactions_commit` runs, is rebuilding from `recording_studio_stripe_webhook_events` required? The stored payload cannot rebuild amount and currency today.
+No questions from the original list remain open. The three device-key gaps above are the remaining open items.
