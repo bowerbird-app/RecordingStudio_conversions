@@ -42,12 +42,6 @@ class CreateRecordingStudioConversions < ActiveRecord::Migration[8.1]
               unique: true,
               where: "outcome = 'matched' AND first_occurrence = true AND root_recording_id IS NOT NULL",
               name: "idx_rs_conversions_first_occurrence_root"
-    add_index :recording_studio_conversions_occurrences,
-              %i[rule_key attribution_subject_id],
-              unique: true,
-              where: "outcome = 'matched' AND first_occurrence = true AND " \
-                     "root_recording_id IS NULL AND attribution_subject_id IS NOT NULL",
-              name: "idx_rs_conversions_first_occurrence_subject"
     add_index :recording_studio_conversions_occurrences, :root_recording_id,
               name: "idx_rs_conversions_occurrences_root"
   end

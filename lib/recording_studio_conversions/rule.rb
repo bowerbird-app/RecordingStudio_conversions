@@ -57,10 +57,20 @@ module RecordingStudioConversions
 
     def matches?(envelope)
       return false unless envelope.name == source
-      return false if root_recording_id && envelope.root_recording_id != root_recording_id
-      return false if recording_id && envelope.recording_id != recording_id
+      return false unless location_matches?(envelope)
+      return false if invoice_on_canceled_subscription?(envelope)
 
       conditions.all? { |condition| condition.match?(envelope.properties) }
+    end
+
+    def location_matches?(envelope)
+      root_ok = root_recording_id.nil? || envelope.root_recording_id == root_recording_id
+      recording_ok = recording_id.nil? || envelope.recording_id == recording_id
+      root_ok && recording_ok
+    end
+
+    def invoice_on_canceled_subscription?(envelope)
+      envelope.name == "stripe.invoice_paid" && envelope.properties["subscription_status"] == "canceled"
     end
   end
 end

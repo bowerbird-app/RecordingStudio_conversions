@@ -35,11 +35,11 @@ class EngineTest < Minitest::Test
       hook_payload = cfg
     end
 
-    xcfg = Struct.new(:recording_studio_conversions).new({ enable_feature_x: true })
+    xcfg = Struct.new(:recording_studio_conversions).new({ raise_errors: true })
     app_config = Struct.new(:x).new(xcfg)
     app = Struct.new(:config) do
       def config_for(_name)
-        { api_key: "from_yaml", timeout: 12 }
+        { user_class_name: "Account" }
       end
     end.new(app_config)
 
@@ -47,15 +47,14 @@ class EngineTest < Minitest::Test
 
     assert hook_called
     assert_equal RecordingStudioConversions.configuration, hook_payload
-    assert_equal "from_yaml", RecordingStudioConversions.configuration.api_key
-    assert_equal 12, RecordingStudioConversions.configuration.timeout
-    assert_equal true, RecordingStudioConversions.configuration.enable_feature_x
+    assert_equal "Account", RecordingStudioConversions.configuration.user_class_name
+    assert_equal true, RecordingStudioConversions.configuration.raise_errors
   end
 
   def test_load_config_handles_errors_and_each_pair_fallback
     pair_config = Class.new do
       def each_pair
-        yield(:timeout, 15)
+        yield(:user_class_name, "Account")
       end
     end.new
 
@@ -70,7 +69,7 @@ class EngineTest < Minitest::Test
 
     find_initializer("recording_studio_conversions.load_config").block.call(app)
 
-    assert_equal 15, RecordingStudioConversions.configuration.timeout
+    assert_equal "Account", RecordingStudioConversions.configuration.user_class_name
   end
 
   def test_load_config_swallow_each_pair_errors
@@ -84,14 +83,14 @@ class EngineTest < Minitest::Test
     app_config = Struct.new(:x).new(xcfg)
     app = Struct.new(:config) do
       def config_for(_name)
-        { api_key: "ok" }
+        { user_class_name: "Account" }
       end
     end.new(app_config)
 
     # Should not raise even if xcfg.each_pair fails.
     find_initializer("recording_studio_conversions.load_config").block.call(app)
 
-    assert_equal "ok", RecordingStudioConversions.configuration.api_key
+    assert_equal "Account", RecordingStudioConversions.configuration.user_class_name
   end
 
   def test_load_config_is_noop_without_config_sources
@@ -99,9 +98,8 @@ class EngineTest < Minitest::Test
 
     find_initializer("recording_studio_conversions.load_config").block.call(app)
 
-    assert_nil RecordingStudioConversions.configuration.api_key
-    assert_equal 5, RecordingStudioConversions.configuration.timeout
-    assert_equal false, RecordingStudioConversions.configuration.enable_feature_x
+    assert_equal "User", RecordingStudioConversions.configuration.user_class_name
+    assert_equal false, RecordingStudioConversions.configuration.raise_errors
   end
 
   def test_load_config_ignores_non_enumerable_yaml_and_merge_errors
@@ -111,7 +109,7 @@ class EngineTest < Minitest::Test
       end
     end.new
 
-    xcfg = Struct.new(:recording_studio_conversions).new({ timeout: 22 })
+    xcfg = Struct.new(:recording_studio_conversions).new({ raise_errors: true })
     app_config = Struct.new(:x).new(xcfg)
     app = Struct.new(:config) do
       attr_accessor :yaml
@@ -124,7 +122,7 @@ class EngineTest < Minitest::Test
 
     find_initializer("recording_studio_conversions.load_config").block.call(app)
 
-    assert_equal 22, RecordingStudioConversions.configuration.timeout
+    assert_equal true, RecordingStudioConversions.configuration.raise_errors
   end
 
   def test_apply_extension_initializers_register_active_support_on_load_callbacks

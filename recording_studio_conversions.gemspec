@@ -6,16 +6,16 @@ Gem::Specification.new do |spec|
   spec.name        = "recording_studio_conversions"
   spec.version     = RecordingStudioConversions::VERSION
   spec.authors     = ["Bowerbird"]
-  spec.homepage    = "https://github.com/bowerbird-app/recording_studio_conversions"
-  spec.summary     = "Recording Studio addon template for Rails engines"
-  spec.description = "An internal template for building Recording Studio addons with Rails 8.1, " \
-                     "UUID-backed PostgreSQL models, TailwindCSS, and GitHub Codespaces support"
+  spec.homepage    = "https://github.com/bowerbird-app/RecordingStudio_conversions"
+  spec.summary     = "Provider-neutral conversion occurrences for Recording Studio"
+  spec.description = "Records conversion occurrences from Recording Studio Users, Stripe, and Views " \
+                     "events, with confirmable-user checks and one acquisition user per workspace root."
   spec.license     = "MIT"
   spec.required_ruby_version = ">= 3.3.0"
 
   spec.metadata["homepage_uri"] = spec.homepage
-  spec.metadata["source_code_uri"] = "https://github.com/bowerbird-app/recording_studio_conversions"
-  spec.metadata["changelog_uri"] = "https://github.com/bowerbird-app/recording_studio_conversions/blob/main/CHANGELOG.md"
+  spec.metadata["source_code_uri"] = "https://github.com/bowerbird-app/RecordingStudio_conversions"
+  spec.metadata["changelog_uri"] = "https://github.com/bowerbird-app/RecordingStudio_conversions/blob/main/CHANGELOG.md"
   spec.metadata["rubygems_mfa_required"] = "true"
 
   spec.files = Dir.chdir(File.expand_path(__dir__)) do

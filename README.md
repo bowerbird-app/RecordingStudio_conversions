@@ -1,6 +1,6 @@
 # RecordingStudioConversions
 
-Internal template for building Rails engine addons on top of Recording Studio 4.x.
+Records provider-neutral conversion occurrences for Recording Studio.
 
 ## What's Included
 
@@ -155,7 +155,7 @@ See the [FlatPack README](https://github.com/bowerbird-app/flatpack) for full do
 
 This gem records provider-neutral conversion occurrences. It requires PostgreSQL. The occurrence table uses `jsonb` and partial unique indexes, which SQLite and MySQL do not provide.
 
-The host confirms users with Devise `:confirmable`. Run `bin/rails generate recording_studio_user:migrations` so `add_devise_confirmable_to_users` adds `confirmation_token`, `confirmed_at`, `confirmation_sent_at`, and `unconfirmed_email`. Set the user class when `RecordingStudio_users` is not loaded:
+The host confirms users with Devise `:confirmable`. A host that does not load RecordingStudio_users needs these four columns on the user table: `confirmation_token`, `confirmed_at`, `confirmation_sent_at`, and `unconfirmed_email`. `bin/rails generate recording_studio_user:migrations` copies them from `add_devise_confirmable_to_users`. `config.user_class_name` defaults to `"User"`, and the install template sets it:
 
 ```ruby
 RecordingStudioConversions.configure do |config|
@@ -166,7 +166,7 @@ end
 
 `raise_errors` stays false in production. A matcher failure instruments `failed.recording_studio_conversions` and logs. It does not raise into the producer. Set `raise_errors` in test when a failure should surface.
 
-Rules are Ruby. Stripe `invoice_paid` has no `trial_fee` key. Match `first_payment` instead:
+Rules are Ruby. Stripe `invoice_paid` has no `trial_fee` key. Match `first_payment` instead. `subscription_status` `"canceled"` does not match. A missing `subscription_status` or `billing_reason` is unknown and does not change the match:
 
 ```ruby
 RecordingStudioConversions.configure do |config|
@@ -208,7 +208,7 @@ Suppressed rows (`unconfirmed_user`, `unknown_user`, `unresolved_acquisition_sub
 RecordingStudioConversions.reevaluate!
 ```
 
-A repeated notification for the same source id updates that row instead of inserting another. Page-view `visitor_id` is taken from the payload. Other events fall back to Root Switchable's device key. This gem does not set a cookie.
+A repeated notification for the same source id updates only a suppressed row. A matched row stays matched. Page-view `visitor_id` is taken from the payload, and the conversion is attributed to that view's `user_id`. Other events fall back to Root Switchable's device key. This gem does not set a cookie.
 
 ## Tech Stack
 

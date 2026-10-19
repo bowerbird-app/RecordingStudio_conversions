@@ -35,7 +35,10 @@ module RecordingStudioConversions
   end
 
   module EnvelopeProperties
-    KEYS = %w[amount currency first_payment invoice_id method path referrer query_params].freeze
+    KEYS = %w[
+      amount billing_reason currency first_payment invoice_id method path referrer query_params
+      subscription_status
+    ].freeze
 
     module_function
 

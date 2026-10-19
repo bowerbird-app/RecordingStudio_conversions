@@ -110,7 +110,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_19_000100) do
     t.datetime "updated_at", null: false
     t.index ["root_recording_id"], name: "idx_rs_conversions_occurrences_root"
     t.index ["rule_key", "root_recording_id"], name: "idx_rs_conversions_first_occurrence_root", unique: true, where: "(((outcome)::text = 'matched'::text) AND (first_occurrence = true) AND (root_recording_id IS NOT NULL))"
-    t.index ["rule_key", "attribution_subject_id"], name: "idx_rs_conversions_first_occurrence_subject", unique: true, where: "(((outcome)::text = 'matched'::text) AND (first_occurrence = true) AND (root_recording_id IS NULL) AND (attribution_subject_id IS NOT NULL))"
     t.index ["rule_key", "source_event_id"], name: "idx_rs_conversions_occurrences_idempotency", unique: true
   end
 

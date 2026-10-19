@@ -19,12 +19,21 @@ module RecordingStudioConversions
     end
 
     def assert_confirmable!
-      klass = user_class
+      klass = safe_user_class
+      return if klass.nil?
+      return unless klass.respond_to?(:table_exists?) && klass.table_exists?
       return if klass.method_defined?(:confirmed?)
 
       raise ConfigurationError, "#{klass.name} must implement confirmed?. " \
                                 "Run bin/rails generate recording_studio_user:migrations " \
                                 "and enable Devise :confirmable."
+    end
+
+    def safe_user_class
+      name = user_class_name
+      return if name.blank?
+
+      name.safe_constantize
     end
 
     def user_class_name
@@ -33,6 +42,23 @@ module RecordingStudioConversions
       else
         RecordingStudioConversions.configuration.user_class_name.to_s
       end
+    end
+
+    def confirming_user_id(envelope, subject)
+      return viewer_id(envelope) if envelope.name == "views.recorded"
+
+      acquisition_user_id(envelope, subject)
+    end
+
+    def viewer_id(envelope)
+      envelope.actor_id if envelope.actor_type == user_class_name
+    end
+
+    def acquisition_user_id(envelope, subject)
+      return subject.subject_id if subject&.subject_type == user_class_name
+      return envelope.actor_id if envelope.actor_type == user_class_name
+
+      nil
     end
 
     def user_class

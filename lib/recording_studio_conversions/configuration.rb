@@ -8,7 +8,7 @@ module RecordingStudioConversions
 
     Subscription = Data.define(:source_name, :canonical_name, :id_key)
 
-    attr_accessor :api_key, :enable_feature_x, :timeout, :raise_errors, :user_class_name
+    attr_accessor :raise_errors, :user_class_name
     attr_reader :hooks, :subscriptions, :rules
 
     def initialize
@@ -17,12 +17,9 @@ module RecordingStudioConversions
     end
 
     def assign_defaults
-      @api_key = ENV.fetch("RECORDING_STUDIO_CONVERSIONS_API_KEY", nil)
-      @enable_feature_x = false
-      @timeout = 5
       @hooks = RecordingStudio::Hooks.new
       @raise_errors = false
-      @user_class_name = nil
+      @user_class_name = "User"
       @subscriptions = []
       @rules = []
     end
@@ -48,9 +45,8 @@ module RecordingStudioConversions
 
     def to_h
       {
-        api_key: api_key,
-        enable_feature_x: enable_feature_x,
-        timeout: timeout,
+        raise_errors: raise_errors,
+        user_class_name: user_class_name,
         hooks_registered: hooks.instance_variable_get(:@registry).transform_values(&:size)
       }
     end

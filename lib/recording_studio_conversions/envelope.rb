@@ -1,6 +1,24 @@
 # frozen_string_literal: true
 
 module RecordingStudioConversions
+  module EnvelopeCoercion
+    module_function
+
+    def source_event_id(value)
+      return if value.is_a?(Array) || value.is_a?(Hash)
+
+      text = value.to_s
+      text if text.match?(Envelope::UUID)
+    end
+
+    def schema_version_for(subscription, data)
+      return data[:schema_version] if data.key?(:schema_version)
+      return Configuration::SUPPORTED_SCHEMA_VERSION if subscription.canonical_name == "users.registered"
+
+      nil
+    end
+  end
+
   class Envelope
     UUID = /\A[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\z/i
 
@@ -31,9 +49,9 @@ module RecordingStudioConversions
       {
         name: subscription.canonical_name,
         source_name: subscription.source_name,
-        source_event_id: data[subscription.id_key].to_s.presence,
+        source_event_id: EnvelopeCoercion.source_event_id(data[subscription.id_key]),
         occurred_at: data[:occurred_at] || Time.current,
-        schema_version: data.fetch(:schema_version, Configuration::SUPPORTED_SCHEMA_VERSION),
+        schema_version: EnvelopeCoercion.schema_version_for(subscription, data),
         actor_type: user_id ? UserConfirmation.user_class_name.presence : data[:actor_type],
         actor_id: user_id || uuid(data[:actor_id])
       }

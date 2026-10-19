@@ -98,8 +98,74 @@ class ConversionsContractTest < Minitest::Test
     envelope = RecordingStudioConversions::Envelope.from(subscription, user_id: user_id, method: :password)
 
     assert_equal user_id, envelope.source_event_id
+    assert_equal 1, envelope.schema_version
+    assert envelope.usable?
     assert_equal "User", envelope.actor_type
     assert_equal "password", envelope.properties["method"].to_s
+  end
+
+  def test_a_non_uuid_page_view_id_is_logged_and_skipped
+    subscription = @configuration.subscriptions.find { |item| item.canonical_name == "views.recorded" }
+    notices = []
+    token = ActiveSupport::Notifications.subscribe(RecordingStudioConversions::Configuration::UNUSABLE_EVENT) do |*args|
+      notices << args.last
+    end
+    composite = ["11111111-1111-4111-8111-111111111111", Time.utc(2026, 10, 19)]
+    envelope = RecordingStudioConversions::Envelope.from(
+      subscription,
+      schema_version: 1,
+      page_view_id: composite,
+      path: "/pricing"
+    )
+
+    refute envelope.usable?
+    assert_nil envelope.source_event_id
+    assert_equal 1, notices.size
+    assert_equal "page_view.recorded.recording_studio_views", notices.first[:source_name]
+  ensure
+    ActiveSupport::Notifications.unsubscribe(token) if token
+  end
+
+  def test_missing_schema_version_defaults_only_for_users
+    users = @configuration.subscriptions.find { |item| item.canonical_name == "users.registered" }
+    stripe = @configuration.subscriptions.find { |item| item.canonical_name == "stripe.invoice_paid" }
+    user_id = "11111111-1111-4111-8111-111111111111"
+    user_envelope = RecordingStudioConversions::Envelope.from(users, user_id: user_id, method: :password)
+    stripe_envelope = RecordingStudioConversions::Envelope.from(stripe, id: SecureRandom.uuid, amount: 1)
+
+    assert_equal 1, user_envelope.schema_version
+    assert user_envelope.usable?
+    assert_nil stripe_envelope.schema_version
+    refute stripe_envelope.usable?
+  end
+
+  def test_canceled_invoice_does_not_match_and_a_missing_status_stays_unknown
+    @configuration.conversion :purchase do
+      source "stripe.invoice_paid"
+      condition :first_payment, equals: true
+    end
+    rule = @configuration.rules.first
+    canceled = envelope(
+      "stripe.invoice_paid",
+      first_payment: true,
+      subscription_status: "canceled",
+      billing_reason: "subscription_cycle"
+    )
+    unknown = envelope("stripe.invoice_paid", first_payment: true)
+    active = envelope(
+      "stripe.invoice_paid",
+      first_payment: true,
+      subscription_status: "active",
+      billing_reason: "subscription_create"
+    )
+
+    refute rule.matches?(canceled)
+    assert rule.matches?(unknown)
+    assert rule.matches?(active)
+    refute unknown.properties.key?("subscription_status")
+    refute unknown.properties.key?("billing_reason")
+    assert_equal "subscription_cycle", canceled.properties["billing_reason"]
+    assert_equal "active", active.properties["subscription_status"]
   end
 
   private

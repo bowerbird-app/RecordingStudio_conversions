@@ -131,29 +131,6 @@ class ConversionsCoreTest < ActiveSupport::TestCase
     assert_equal replacement.id, RecordingStudioConversions::AcquisitionSubject.for_root(root.id).subject_id
   end
 
-  test "concurrent deliveries of one stripe id leave a single row" do
-    root = create_root
-    user = create_user(confirmed_at: Time.current)
-    RecordingStudioConversions.record_acquisition_user!(root_recording_id: root.id, user_id: user.id)
-    rule :trial, "stripe.trial_started", first_occurrence: true
-    payload = trial_payload(root)
-    errors = Queue.new
-
-    threads = Array.new(2) do
-      Thread.new do
-        ActiveRecord::Base.connection_pool.with_connection do
-          publish("trial_started.recording_studio_stripe", payload)
-        end
-      rescue StandardError => error
-        errors << error
-      end
-    end
-    threads.each(&:join)
-
-    assert_empty errors
-    assert_equal 1, RecordingStudioConversions::Occurrence.where(source_event_id: payload[:id]).count
-  end
-
   test "invoice amount is stored and a later invoice is not the first payment" do
     root = create_root
     user = create_user(confirmed_at: Time.current)
@@ -174,7 +151,126 @@ class ConversionsCoreTest < ActiveSupport::TestCase
     assert_equal true, paid.properties["first_payment"]
     assert_equal "in_first", paid.properties["invoice_id"]
     refute paid.properties.key?("trial_fee")
+    refute paid.properties.key?("subscription_status")
     assert_equal 1, RecordingStudioConversions::Occurrence.where(rule_key: "purchase").count
+  end
+
+  test "a paid invoice on a canceled subscription is not a conversion" do
+    root = create_root
+    user = create_user(confirmed_at: Time.current)
+    RecordingStudioConversions.record_acquisition_user!(root_recording_id: root.id, user_id: user.id)
+    RecordingStudioConversions.configuration.conversion :purchase do
+      source "stripe.invoice_paid"
+      condition :first_payment, equals: true
+    end
+
+    _canceled, canceled_delta = publish(
+      "invoice_paid.recording_studio_stripe",
+      invoice_payload(root, first_payment: true, billing_reason: "subscription_cycle", subscription_status: "canceled")
+    )
+    paid, paid_delta = publish(
+      "invoice_paid.recording_studio_stripe",
+      invoice_payload(root, first_payment: true, billing_reason: "subscription_create", subscription_status: "active")
+    )
+
+    assert_equal 0, canceled_delta
+    assert_equal 1, paid_delta
+    assert_equal "matched", paid.outcome
+    assert_equal "subscription_create", paid.properties["billing_reason"]
+    assert_equal "active", paid.properties["subscription_status"]
+  end
+
+  test "a page view is confirmed for the viewer rather than the acquisition user" do
+    root = create_root
+    owner = create_user(confirmed_at: Time.current)
+    viewer = create_user(confirmed_at: nil)
+    RecordingStudioConversions.record_acquisition_user!(root_recording_id: root.id, user_id: owner.id)
+    rule :view, "views.recorded"
+    payload = page_view_payload(root: root, recording_id: nil).merge(user_id: viewer.id)
+
+    occurrence, delta = publish("page_view.recorded.recording_studio_views", payload)
+
+    assert_equal 1, delta
+    assert_equal "suppressed", occurrence.outcome
+    assert_equal "unconfirmed_user", occurrence.suppression_reason
+    assert_equal viewer.id, occurrence.actor_id
+    assert_nil occurrence.attribution_subject_id
+
+    viewer.update!(confirmed_at: Time.current)
+    revised = RecordingStudioConversions.reevaluate!.sole
+
+    assert_equal "matched", revised.outcome
+    assert_equal viewer.id, revised.actor_id
+    assert_nil revised.attribution_subject_id
+  end
+
+  test "reevaluate keeps going when one suppressed row raises" do
+    first = create_user(confirmed_at: nil)
+    second = create_user(confirmed_at: nil)
+    rule :registration, "users.registered"
+    publish_registration(first)
+    publish_registration(second)
+    first.update!(confirmed_at: Time.current)
+    second.update!(confirmed_at: Time.current)
+    original = RecordingStudioConversions::UserConfirmation.method(:lookup)
+    failures = []
+    token = ActiveSupport::Notifications.subscribe("failed.recording_studio_conversions") do |*args|
+      failures << args.last
+    end
+    RecordingStudioConversions::UserConfirmation.define_singleton_method(:lookup) do |user_id|
+      raise "confirmation lookup failed" if user_id == first.id
+
+      original.call(user_id)
+    end
+
+    revised = RecordingStudioConversions.reevaluate!
+
+    assert_equal [second.id], revised.map(&:actor_id)
+    assert_equal "suppressed", RecordingStudioConversions::Occurrence.find_by(actor_id: first.id).outcome
+    assert_equal "matched", RecordingStudioConversions::Occurrence.find_by(actor_id: second.id).outcome
+    assert_equal 1, failures.size
+  ensure
+    if original
+      RecordingStudioConversions::UserConfirmation.define_singleton_method(:lookup, original)
+    end
+    ActiveSupport::Notifications.unsubscribe(token) if token
+  end
+
+  test "an idempotency conflict leaves the suppressed winner unchanged" do
+    user = create_user(confirmed_at: nil)
+    rule :registration, "users.registered"
+    occurrence, = publish_registration(user)
+    envelope = RecordingStudioConversions::Envelope.from_record(occurrence)
+    change = writer_change("registration", envelope, nil, "matched", nil)
+
+    recovered = occurrence_writer.send(:recover, change)
+
+    assert_equal occurrence.id, recovered.id
+    assert_equal "suppressed", recovered.outcome
+    assert_equal "unconfirmed_user", recovered.suppression_reason
+    assert_equal 1, RecordingStudioConversions::Occurrence.where(rule_key: "registration").count
+  end
+
+  test "a first-occurrence conflict records already_recorded without relabeling the winner" do
+    root = create_root
+    user = create_user(confirmed_at: Time.current)
+    RecordingStudioConversions.record_acquisition_user!(root_recording_id: root.id, user_id: user.id)
+    rule :trial, "stripe.trial_started", first_occurrence: true
+    winner, = publish("trial_started.recording_studio_stripe", trial_payload(root))
+    subscription = RecordingStudioConversions.configuration.subscriptions.find do |item|
+      item.canonical_name == "stripe.trial_started"
+    end
+    envelope = RecordingStudioConversions::Envelope.from(subscription, trial_payload(root))
+    subject = RecordingStudioConversions::AcquisitionSubject.for_root(root.id)
+    change = writer_change("trial", envelope, subject, "matched", nil)
+
+    recovered = occurrence_writer(user).send(:recover, change)
+
+    assert_equal "matched", winner.reload.outcome
+    assert_equal "suppressed", recovered.outcome
+    assert_equal "already_recorded", recovered.suppression_reason
+    assert_equal envelope.source_event_id, recovered.source_event_id
+    refute_equal winner.id, recovered.id
   end
 
   test "an anonymous page view keeps the payload visitor and recording" do
@@ -247,13 +343,26 @@ class ConversionsCoreTest < ActiveSupport::TestCase
     }
   end
 
-  def invoice_payload(root, first_payment:)
+  def invoice_payload(root, first_payment:, billing_reason: nil, subscription_status: nil)
     trial_payload(root).merge(
       amount: 2900,
       currency: "usd",
       invoice_id: first_payment ? "in_first" : "in_second",
-      first_payment: first_payment
-    )
+      first_payment: first_payment,
+      billing_reason: billing_reason,
+      subscription_status: subscription_status
+    ).compact
+  end
+
+  def writer_change(rule_key, envelope, subject, outcome, reason)
+    rule = RecordingStudioConversions.configuration.rules.find { |item| item.key == rule_key }
+    RecordingStudioConversions::OccurrenceWriter::Change.new(rule, envelope, subject, outcome, reason)
+  end
+
+  def occurrence_writer(user = nil)
+    confirmations = {}
+    confirmations[user.id] = [:found, user.confirmed_at] if user
+    RecordingStudioConversions::OccurrenceWriter.new(confirmations: confirmations)
   end
 
   def page_view_payload(root:, recording_id:)
@@ -277,5 +386,90 @@ class ConversionsCoreTest < ActiveSupport::TestCase
     source_id = payload[:id] || payload[:page_view_id] || payload[:user_id]
     row = RecordingStudioConversions::Occurrence.find_by(source_event_id: source_id.to_s) if source_id
     [row, RecordingStudioConversions::Occurrence.count - before]
+  end
+end
+
+class ConversionsConcurrencyTest < ActiveSupport::TestCase
+  self.use_transactional_tests = false
+
+  setup do
+    RecordingStudioConversions.configuration.clear_rules!
+    RecordingStudioConversions.configuration.raise_errors = true
+  end
+
+  teardown do
+    RecordingStudioConversions.configuration.clear_rules!
+    RecordingStudioConversions.configuration.raise_errors = false
+    cleanup_race(@root, @user)
+  end
+
+  test "concurrent deliveries of one stripe id leave a single row" do
+    workspace = Workspace.create!(name: "Workspace #{SecureRandom.hex(4)}")
+    @root = RecordingStudio.root_recording_for(workspace)
+    @user = User.create!(
+      email: "person-#{SecureRandom.hex(4)}@example.com",
+      password: "Password123",
+      password_confirmation: "Password123",
+      confirmed_at: Time.current
+    )
+    RecordingStudioConversions.record_acquisition_user!(root_recording_id: @root.id, user_id: @user.id)
+    RecordingStudioConversions.configuration.conversion :trial do
+      source "stripe.trial_started"
+      first_occurrence!
+    end
+    payload = {
+      schema_version: 1,
+      id: SecureRandom.uuid,
+      occurred_at: Time.utc(2026, 10, 19, 2, 0, 0),
+      subscription_id: SecureRandom.uuid,
+      customer_id: SecureRandom.uuid,
+      root_recording_id: @root.id
+    }
+    ready = Queue.new
+    go = Queue.new
+    started = Queue.new
+    errors = Queue.new
+
+    threads = Array.new(2) do
+      Thread.new do
+        ActiveRecord::Base.connection_pool.with_connection do
+          ready << true
+          go.pop
+          started << Time.now.to_f
+          ActiveSupport::Notifications.instrument("trial_started.recording_studio_stripe", payload)
+        end
+      rescue StandardError => error
+        errors << error
+      end
+    end
+    2.times { ready.pop }
+    2.times { go << true }
+    threads.each(&:join)
+
+    assert_empty errors
+    starts = 2.times.map { started.pop }
+    assert_in_delta starts[0], starts[1], 1
+    assert_equal 1, RecordingStudioConversions::Occurrence.where(source_event_id: payload[:id]).count
+  end
+
+  private
+
+  def cleanup_race(root, user)
+    return if root.nil?
+
+    connection = ActiveRecord::Base.connection
+    recording_ids = connection.select_values(<<~SQL.squish)
+      SELECT id FROM recording_studio_recordings
+      WHERE id = #{connection.quote(root.id)} OR root_recording_id = #{connection.quote(root.id)}
+    SQL
+    quoted_ids = recording_ids.map { |id| connection.quote(id) }.join(", ")
+    connection.execute("DELETE FROM recording_studio_conversions_occurrences WHERE root_recording_id = #{connection.quote(root.id)}")
+    connection.execute("DELETE FROM recording_studio_conversions_acquisition_subjects WHERE root_recording_id = #{connection.quote(root.id)}")
+    unless quoted_ids.empty?
+      connection.execute("DELETE FROM recording_studio_events WHERE recording_id IN (#{quoted_ids})")
+      connection.execute("DELETE FROM recording_studio_recordings WHERE id IN (#{quoted_ids})")
+    end
+    connection.execute("DELETE FROM workspaces WHERE id = #{connection.quote(root.recordable_id)}")
+    connection.execute("DELETE FROM users WHERE id = #{connection.quote(user.id)}") if user
   end
 end

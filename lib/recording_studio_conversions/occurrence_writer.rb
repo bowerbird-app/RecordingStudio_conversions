@@ -29,7 +29,7 @@ module RecordingStudioConversions
 
     def recover(change)
       existing = Occurrence.find_by(rule_key: change.rule.key, source_event_id: change.envelope.source_event_id)
-      return revise(existing, change.with(outcome: "suppressed", reason: "already_recorded")) if existing
+      return existing if existing
 
       Occurrence.transaction(requires_new: true) do
         Occurrence.create!(attributes(change.with(outcome: "suppressed", reason: "already_recorded")))
@@ -61,10 +61,7 @@ module RecordingStudioConversions
     end
 
     def user_id_for(envelope, subject)
-      return subject.subject_id if subject&.subject_type == UserConfirmation.user_class_name
-      return envelope.actor_id if envelope.actor_type == UserConfirmation.user_class_name
-
-      nil
+      UserConfirmation.confirming_user_id(envelope, subject)
     end
   end
 end
