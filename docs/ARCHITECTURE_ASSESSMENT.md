@@ -548,6 +548,7 @@ Recorded 2026-10-19. These close the questions above.
 Facts from tag `v0.13.0`, not Marco's decision: `amount` is that integer. `first_payment` is a boolean. `invoice_id`, `billing_reason` (`""` when missing), and `subscription_status` are on the payload. Conversions does not recompute them.
 
 Policy, not Marco's decision: excluding `subscription_status` `"canceled"` is the default (`excluded_subscription_statuses`). A missing or blank status stays unknown and does not change the match.
+
 6. **Trial fee and `trial_started`.** A trial-fee invoice is not a paid invoice and must not count as `first_payment`. `trial_started` fires once for a subscription that is created already trialing or that transitions into `trialing`.
 7. **Page views.** Decided 2026-10-19. Page views come from `RecordingStudio_views`, designed against tag `v0.3.0`. The tag follows the Logs dummy `site_views` shape (`resource_type`, `root_recording_id`, `recording_id`) and emits `page_view.recorded.recording_studio_views`. This repo does not change Views.
 8. **Visitor id.** Decided 2026-10-19. Reuse Root Switchable's anonymous device key. Do not create a visitor UUID table or a second cookie. Details are in the next section. Conversions reads the key through one interface. That interface's only source is Root Switchable.

@@ -308,9 +308,9 @@ class AdaptersTest < Minitest::Test
     assert_equal [:advertising], parent.fields.map(&:consent_category).uniq
   end
 
-  def test_unloadable_cpath_guard_matches_zeitwerk_2_8_3
-    assert_equal "2.8.3", Zeitwerk::VERSION
-    assert Zeitwerk::Loader.allocate.respond_to?(:unloadable_cpath?)
+  def test_unloadable_cpath_guard_skips_a_loader_without_the_method
+    assert Zeitwerk::Loader.allocate.respond_to?(:unloadable_cpath?),
+           "unloadable_cpath? missing on Zeitwerk #{Zeitwerk::VERSION}"
 
     adapter = named_adapter(:LegacyLoaderAdapter) do
       key :legacy_loader
@@ -323,6 +323,33 @@ class AdaptersTest < Minitest::Test
     assert @configuration.adapters.registered?(:legacy_loader)
   ensure
     Rails.application = previous if defined?(previous)
+  end
+
+  def test_app_adapter_passes_check_when_reloading_is_off
+    root = nil
+    loader = nil
+    previous = Rails.application
+    root = Dir.mktmpdir
+    app_root = File.join(root, "app")
+    loader = Zeitwerk::Loader.new
+    FileUtils.mkdir_p(app_root)
+    write_adapter(app_root, "app_host_adapter", :app_host)
+    loader.push_dir(app_root)
+    loader.setup
+    Rails.application = Struct.new(:autoloaders).new(Struct.new(:main).new(loader))
+
+    adapter = AppHostAdapter
+    refute loader.reloading_enabled?
+    refute loader.unloadable_cpath?(adapter.name)
+    configuration = RecordingStudioConversions::Configuration.new
+    configuration.register_adapter :app_host, adapter
+    configuration.adapters.check!(subscriptions: configuration.subscriptions, rules: configuration.rules)
+    assert configuration.adapters.registered?(:app_host)
+  ensure
+    Rails.application = previous if defined?(previous)
+    loader&.unregister
+    remove_host_adapter(:AppHostAdapter)
+    FileUtils.rm_rf(root) if defined?(root) && root
   end
 
   def test_required_managed_lib_adapter_survives_reload
