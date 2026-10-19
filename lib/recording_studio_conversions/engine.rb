@@ -5,6 +5,15 @@ module RecordingStudioConversions
     isolate_namespace RecordingStudioConversions
 
     class << self
+      def load_yaml_config(app)
+        return unless app.respond_to?(:config_for)
+
+        yaml = app.config_for(:recording_studio_conversions)
+        RecordingStudioConversions.configuration.merge!(yaml) if yaml.respond_to?(:each)
+      rescue StandardError
+        nil
+      end
+
       def apply_model_extensions(target)
         apply_extensions(target, extensions_for(:model, extension_keys_for(target)))
       end
@@ -51,34 +60,29 @@ module RecordingStudioConversions
       end
     end
 
+    initializer "recording_studio_conversions.subscribe" do
+      config.to_prepare { RecordingStudioConversions.install! }
+    end
+
+    initializer "recording_studio_conversions.confirmable" do
+      config.after_initialize { RecordingStudioConversions::UserConfirmation.assert_confirmable! }
+    end
+
     # Run before_initialize hooks
-    initializer "recording_studio_conversions.before_initialize", before: "recording_studio_conversions.load_config" do |_app|
+    initializer "recording_studio_conversions.before_initialize",
+                before: "recording_studio_conversions.load_config" do |_app|
       RecordingStudioConversions.configuration.hooks.run(:before_initialize, self)
     end
 
     initializer "recording_studio_conversions.load_config" do |app|
-      # Load config/recording_studio_conversions.yml via Rails config_for if present
-      if app.respond_to?(:config_for)
-        begin
-          yaml = begin
-            app.config_for(:recording_studio_conversions)
-          rescue StandardError
-            nil
-          end
-          RecordingStudioConversions.configuration.merge!(yaml) if yaml.respond_to?(:each)
-        rescue StandardError => _e
-          # ignore load errors; host app can provide initializer overrides
-        end
-      end
+      RecordingStudioConversions::Engine.load_yaml_config(app)
 
-      # Merge Rails.application.config.x.recording_studio_conversions if present
       if app.config.respond_to?(:x) && app.config.x.respond_to?(:recording_studio_conversions)
         xcfg = app.config.x.recording_studio_conversions
         if xcfg.respond_to?(:to_h)
           RecordingStudioConversions.configuration.merge!(xcfg.to_h)
         else
           begin
-            # try converting OrderedOptions
             hash = {}
             xcfg.each_pair { |k, v| hash[k] = v } if xcfg.respond_to?(:each_pair)
             RecordingStudioConversions.configuration.merge!(hash) if hash&.any?
@@ -88,12 +92,13 @@ module RecordingStudioConversions
         end
       end
 
-      # Run on_configuration hooks after config is loaded
-      RecordingStudioConversions.configuration.hooks.run(:on_configuration, RecordingStudioConversions.configuration)
+      configuration = RecordingStudioConversions.configuration
+      configuration.hooks.run(:on_configuration, configuration)
     end
 
     # Run after_initialize hooks
-    initializer "recording_studio_conversions.after_initialize", after: "recording_studio_conversions.load_config" do |_app|
+    initializer "recording_studio_conversions.after_initialize",
+                after: "recording_studio_conversions.load_config" do |_app|
       RecordingStudioConversions.configuration.hooks.run(:after_initialize, self)
     end
 

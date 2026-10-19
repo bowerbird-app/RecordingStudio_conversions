@@ -252,7 +252,8 @@ class EngineTest < Minitest::Test
     RecordingStudioConversions::Engine.send(:apply_extensions, target, [nil, [extension, extension]])
 
     assert_equal :generated, target.new.generated_method
-    assert_equal true, target.instance_variable_get(:@recording_studio_conversions_applied_extensions).compare_by_identity?
+    applied = target.instance_variable_get(:@recording_studio_conversions_applied_extensions)
+    assert_equal true, applied.compare_by_identity?
   end
 
   def test_apply_extensions_returns_without_target

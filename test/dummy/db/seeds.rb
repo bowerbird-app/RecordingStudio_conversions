@@ -20,6 +20,7 @@ user = User.find_or_create_by!(email: "admin@admin.com") do |u|
   u.password = "Password"
   u.password_confirmation = "Password"
 end
+user.update!(confirmed_at: Time.current) if user.confirmed_at.nil?
 
 # Create the workspace recordables
 workspace = Workspace.find_or_create_by!(name: "Studio Workspace")

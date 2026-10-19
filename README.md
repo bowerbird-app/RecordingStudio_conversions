@@ -151,6 +151,65 @@ Use the live FlatPack demo app at [flatpack.bowerbird.io](https://flatpack.bower
 
 See the [FlatPack README](https://github.com/bowerbird-app/flatpack) for full documentation.
 
+## Conversions (milestone 2)
+
+This gem records provider-neutral conversion occurrences. It requires PostgreSQL. The occurrence table uses `jsonb` and partial unique indexes, which SQLite and MySQL do not provide.
+
+The host confirms users with Devise `:confirmable`. Run `bin/rails generate recording_studio_user:migrations` so `add_devise_confirmable_to_users` adds `confirmation_token`, `confirmed_at`, `confirmation_sent_at`, and `unconfirmed_email`. Set the user class when `RecordingStudio_users` is not loaded:
+
+```ruby
+RecordingStudioConversions.configure do |config|
+  config.user_class_name = "User"
+  config.raise_errors = false
+end
+```
+
+`raise_errors` stays false in production. A matcher failure instruments `failed.recording_studio_conversions` and logs. It does not raise into the producer. Set `raise_errors` in test when a failure should surface.
+
+Rules are Ruby. Stripe `invoice_paid` has no `trial_fee` key. Match `first_payment` instead:
+
+```ruby
+RecordingStudioConversions.configure do |config|
+  config.conversion :start_trial do
+    source "stripe.trial_started"
+    first_occurrence!
+  end
+
+  config.conversion :purchase do
+    source "stripe.invoice_paid"
+    condition :first_payment, equals: true
+  end
+
+  config.conversion :pricing_view do
+    source "views.recorded"
+    recording pricing_recording_id
+  end
+end
+```
+
+Subscriptions, and the payload key used as `source_event_id`:
+
+| Notification | Canonical name | Id key |
+|---|---|---|
+| `registration.completed.recording_studio_user` | `users.registered` | `user_id` |
+| `trial_started.recording_studio_stripe` | `stripe.trial_started` | `id` |
+| `invoice_paid.recording_studio_stripe` | `stripe.invoice_paid` | `id` |
+| `page_view.recorded.recording_studio_views` | `views.recorded` | `page_view_id` |
+
+After Onboarding creates the workspace, the host records the one acquisition user. A later call replaces that user and does not keep the previous one. A rooted first-occurrence rule still matches only once for that root:
+
+```ruby
+RecordingStudioConversions.record_acquisition_user!(root_recording_id: root.id, user_id: user.id)
+```
+
+Suppressed rows (`unconfirmed_user`, `unknown_user`, `unresolved_acquisition_subject`, `already_recorded`) can be judged again after the host fixes the cause:
+
+```ruby
+RecordingStudioConversions.reevaluate!
+```
+
+A repeated notification for the same source id updates that row instead of inserting another. Page-view `visitor_id` is taken from the payload. Other events fall back to Root Switchable's device key. This gem does not set a cookie.
+
 ## Tech Stack
 
 | Component       | Version |
@@ -170,4 +229,4 @@ The dummy Gemfile keeps `github:` sources so Bundler can fetch those gems. The g
 
 ## Documentation
 
-The original gem template documentation is preserved in `docs/recording_studio_conversions/` as architectural reference material. Use it as background on the engine conventions; this README and the dummy app are the source of truth for the Recording Studio addon workflow.
+The original gem template documentation is preserved in `docs/gem_template/` as architectural reference material. Use it as background on the engine conventions; this README and the dummy app are the source of truth for the Recording Studio addon workflow.

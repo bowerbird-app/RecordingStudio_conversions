@@ -25,9 +25,13 @@ module RecordingStudioConversions
       end
 
       def add_yaml_config
-        return unless yes?("Would you like to add `config/recording_studio_conversions.yml` for environment-specific settings? [y/N]")
+        return unless yaml_config_requested?
 
         template "recording_studio_conversions.yml", "config/recording_studio_conversions.yml"
+      end
+
+      def yaml_config_requested?
+        yes?("Add config/recording_studio_conversions.yml for environment-specific settings? [y/N]")
       end
 
       def add_tailwind_source
@@ -96,7 +100,8 @@ module RecordingStudioConversions
       def tailwind_source_lines
         [
           '@source "../../vendor/bundle/**/recording_studio_conversions/app/views/**/*.erb";',
-          '@source "../../../../../../usr/local/bundle/ruby/**/bundler/gems/recording_studio_conversions-*/app/views/**/*.erb";',
+          "@source \"../../../../../../usr/local/bundle/ruby/**/bundler/gems/" \
+          "recording_studio_conversions-*/app/views/**/*.erb\";",
           '@source "../../vendor/bundle/**/flatpack/app/components/**/*.{rb,erb}";',
           '@source "../../../../../../usr/local/bundle/ruby/**/bundler/gems/flatpack-*/app/components/**/*.{rb,erb}";'
         ]
