@@ -319,9 +319,9 @@ class AdaptersTest < Minitest::Test
     end
   end
 
-  def test_check_raises_when_raise_errors_is_false_and_eager_load_is_on
+  def test_check_raises_when_raise_errors_is_true_and_eager_load_is_on
     configuration = missing_rule_configuration
-    configuration.raise_errors = false
+    configuration.raise_errors = true
 
     with_boot_context(eager_load: true) do |logger|
       error = assert_raises(ArgumentError) { RecordingStudioConversions.check! }

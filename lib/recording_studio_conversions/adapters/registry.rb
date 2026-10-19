@@ -15,6 +15,8 @@ module RecordingStudioConversions
         @adapters[symbol] = adapter_class
       end
 
+      # assert_sources! always raises. assert_conversion_events! follows
+      # eager_load and raise_errors.
       def check!(subscriptions:, rules:)
         @adapters.each do |symbol, adapter_class|
           assert_sources!(symbol, adapter_class, subscriptions, rules)
@@ -106,8 +108,8 @@ module RecordingStudioConversions
         report_conversion_events!(symbol, unknown)
       end
 
-      # raise_errors defaults to false and can only escalate a warning to a raise.
-      # eager_load still raises, matching UserConfirmation.assert_confirmable!.
+      # Follows assert_confirmable!'s eager_load gate. Unlike that check, this
+      # one also honors raise_errors and raises ArgumentError.
       def conversion_event_error?
         RecordingStudioConversions.configuration.raise_errors || UserConfirmation.eager_load?
       end
