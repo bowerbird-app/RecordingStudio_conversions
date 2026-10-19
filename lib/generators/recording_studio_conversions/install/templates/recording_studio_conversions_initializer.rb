@@ -10,4 +10,9 @@ RecordingStudioConversions.configure do |config|
   # Blank or missing subscription_status stays unknown and can still match.
   # incomplete_expired and unpaid are not excluded unless you add them.
   # config.excluded_subscription_statuses = %w[canceled]
+
+  # Providers are code-defined. Register an adapter, then a destination, when
+  # one is enabled. An empty registry is a valid boot.
+  # config.register_adapter :example, ExampleAdapter
+  # config.destination :example, adapter: :example
 end

@@ -3,6 +3,8 @@
 require "recording_studio"
 require "recording_studio_conversions/version"
 require "recording_studio_conversions/engine"
+require "recording_studio_conversions/adapters"
+require "recording_studio_conversions/provider_configuration"
 require "recording_studio_conversions/configuration"
 require "recording_studio_conversions/capabilities/example"
 require "recording_studio_conversions/rule"

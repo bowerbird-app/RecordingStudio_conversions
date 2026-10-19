@@ -41,6 +41,16 @@ The architecture must support future providers such as Google Ads and TikTok wit
 12. Important conversion deliveries must survive process crashes, retries and provider outages.
 13. Privacy, consent, retention and root isolation must be enforced across collection, storage and delivery.
 
+### Decisions recorded 2026-10-19
+
+These are decided. They do not gate later milestones.
+
+1. Each workspace has exactly one acquisition user. The host records it after Onboarding creates the workspace. Registration does not guess a root.
+2. The visitor id reuses Root Switchable's anonymous device key. Conversions does not set a visitor cookie.
+3. The invoice value is Stripe `amount_paid`, an integer. `DomainEvent#instrument_payload` publishes that integer as `amount`.
+4. Accessible's `:view` role is enough for the future admin pages. No dedicated action key.
+5. Page views come from `RecordingStudio_views`, designed against tag `v0.3.0`. Ignore open Views pull requests.
+
 ---
 
 # 2. Inspect existing Recording Studio gems
@@ -223,6 +233,8 @@ The exact event integration must follow the owning gem's lifecycle semantics.
 
 **Recording Studio Views is the owner of page-view collection.**
 
+Decided 2026-10-19: design that contract against `RecordingStudio_views` tag `v0.3.0`. Ignore open Views pull requests.
+
 Conversions must consume view events rather than implementing its own independent page-view counting infrastructure.
 
 The Views gem should emit sufficiently structured events to distinguish:
@@ -393,6 +405,8 @@ RecordingStudioConversions.configure do |config|
 end
 ```
 
+Decided 2026-10-19: Stripe's invoice value is `amount_paid`. The notification key is integer `amount`.
+
 The final DSL should follow existing Recording Studio conventions.
 
 Support:
@@ -433,6 +447,8 @@ A first-occurrence rule must be enforced through a business-level uniqueness con
 # 9. Explicit acquisition identity
 
 **The host application must explicitly determine the attribution subject for conversions.**
+
+Decided 2026-10-19: each workspace has exactly one acquisition user, recorded by the host after Onboarding creates the workspace.
 
 This is particularly important when a workspace has multiple users.
 
@@ -639,7 +655,7 @@ The host determines which layouts enable tracking.
 
 The tracker should:
 
-- Resolve a first-party anonymous visitor/session identifier when permitted.
+- Resolve a first-party anonymous visitor/session identifier when permitted. Decided 2026-10-19: that identifier is Root Switchable's anonymous device key. Do not set a new visitor cookie.
 - Collect provider-declared query parameters.
 - Read permitted provider-declared cookies.
 - Communicate with the backend collector.
@@ -987,6 +1003,8 @@ All administration screens must use `RecordingStudio_admin`.
 Do not create a separate administration framework.
 
 **The interface is read-only.**
+
+Decided 2026-10-19: Accessible's `:view` role on the admin recording is enough for these pages. No dedicated action key.
 
 Conversion rules, provider registrations and tracking destinations remain configured in code.
 

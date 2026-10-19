@@ -210,6 +210,19 @@ RecordingStudioConversions.reevaluate!
 
 A repeated notification for the same source id updates only a suppressed row. A matched row stays matched. Page-view `visitor_id` is taken from the payload, and the conversion is attributed to that view's `user_id`. Other events fall back to Root Switchable's device key. This gem does not set a cookie.
 
+## Providers (milestone 3)
+
+Provider contracts are Ruby. The registry starts empty, and the app boots with no destination. A destination enables an adapter. Option values such as an access token stay on the destination and are left out of `configuration.to_h`.
+
+```ruby
+RecordingStudioConversions.configure do |config|
+  config.register_adapter :example, ExampleAdapter
+  config.destination :example, adapter: :example
+end
+```
+
+An adapter subclass declares consent, delivery channels (`:server` and `:browser`), an optional max event age, an optional browser module name, and external event names. Attribution and identity fields declare source, required or optional, alternatives, a transform name, consent category, sensitivity, and retention. `transform` is stored and not called. `sufficient?` and `within_age?` answer from those declarations. This milestone does not collect fields, deliver them, or call a provider.
+
 ## Tech Stack
 
 | Component       | Version |

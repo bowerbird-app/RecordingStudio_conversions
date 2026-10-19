@@ -2,6 +2,8 @@
 
 module RecordingStudioConversions
   class Configuration
+    include ProviderConfiguration
+
     SUPPORTED_SCHEMA_VERSION = 1
     FAILED_EVENT = "failed.recording_studio_conversions"
     UNUSABLE_EVENT = "unusable_envelope.recording_studio_conversions"
@@ -9,7 +11,7 @@ module RecordingStudioConversions
     Subscription = Data.define(:source_name, :canonical_name, :id_key)
 
     attr_accessor :raise_errors, :user_class_name, :excluded_subscription_statuses
-    attr_reader :hooks, :subscriptions, :rules
+    attr_reader :hooks, :subscriptions, :rules, :adapters
 
     def initialize
       assign_defaults
@@ -23,6 +25,8 @@ module RecordingStudioConversions
       @excluded_subscription_statuses = %w[canceled]
       @subscriptions = []
       @rules = []
+      @adapters = Adapters::Registry.new
+      @destinations = []
     end
 
     def register_sources
@@ -48,7 +52,9 @@ module RecordingStudioConversions
       {
         raise_errors: raise_errors,
         user_class_name: user_class_name,
-        hooks_registered: hooks.instance_variable_get(:@registry).transform_values(&:size)
+        hooks_registered: hooks.instance_variable_get(:@registry).transform_values(&:size),
+        adapters: adapters.keys,
+        destinations: destinations.map(&:key)
       }
     end
 

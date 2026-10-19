@@ -9,7 +9,7 @@ Gem::Specification.new do |spec|
   spec.homepage    = "https://github.com/bowerbird-app/RecordingStudio_conversions"
   spec.summary     = "Provider-neutral conversion occurrences for Recording Studio"
   spec.description = "Records conversion occurrences from Recording Studio Users, Stripe, and Views " \
-                     "events, with confirmable-user checks and one acquisition user per workspace root."
+                     "events, and declares provider field, consent, channel, and age contracts."
   spec.license     = "MIT"
   spec.required_ruby_version = ">= 3.3.0"
 

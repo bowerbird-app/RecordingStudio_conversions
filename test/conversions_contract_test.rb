@@ -177,6 +177,28 @@ class ConversionsContractTest < Minitest::Test
     refute rule.matches?(unpaid)
   end
 
+  def test_v0_13_invoice_payload_stores_amount_paid_under_amount
+    # RecordingStudio_stripe v0.13.0 DomainEvent#instrument_payload publishes
+    # integer amount copied from the invoice snapshot's amount_paid.
+    paid = envelope(
+      "stripe.invoice_paid",
+      amount: 2900,
+      amount_paid: 2900,
+      currency: "usd",
+      invoice_id: "in_first",
+      billing_reason: "",
+      subscription_status: "active",
+      first_payment: true
+    )
+
+    assert_equal 2900, paid.properties["amount"]
+    refute paid.properties.key?("amount_paid")
+    refute paid.properties.key?("customer_id")
+    refute paid.properties.key?("billing_reason")
+    assert_equal "active", paid.properties["subscription_status"]
+    assert_equal true, paid.properties["first_payment"]
+  end
+
   def test_blank_billing_reason_is_unknown_and_false_is_kept
     envelope = envelope("stripe.invoice_paid", first_payment: false, billing_reason: "", currency: "usd")
 

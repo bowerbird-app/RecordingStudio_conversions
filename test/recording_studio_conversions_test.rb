@@ -4,7 +4,7 @@ require "test_helper"
 
 class RecordingStudioConversionsTest < Minitest::Test
   def test_version_matches_release
-    assert_equal "0.2.3", ::RecordingStudioConversions::VERSION
+    assert_equal "0.3.0", ::RecordingStudioConversions::VERSION
   end
 
   def test_engine_exists
@@ -15,6 +15,17 @@ class RecordingStudioConversionsTest < Minitest::Test
     gemspec = File.read(File.expand_path("../recording_studio_conversions.gemspec", __dir__))
 
     assert_includes gemspec, 'spec.add_dependency "recording_studio", "~> 4.2"'
+    refute_includes gemspec, "recording_studio_stripe"
+    refute_includes gemspec, "recording_studio_attachable"
+    refute_includes gemspec, "recording_studio_library"
+  end
+
+  def test_root_gemfile_pins_stripe_v0_13_without_loading_it
+    gemfile = File.read(File.expand_path("../Gemfile", __dir__))
+
+    assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_stripe", tag: "v0.13.0", require: false'
+    refute_includes gemfile, "recording_studio_attachable"
+    refute_includes gemfile, "recording_studio_library"
   end
 
   def test_gemspec_excludes_cursor_config
@@ -58,6 +69,9 @@ class RecordingStudioConversionsTest < Minitest::Test
     refute_includes gemfile, 'tag: "v0.6.0"'
     refute_includes gemfile, 'tag: "v0.5.1"'
     assert_includes gemfile, 'github: "bowerbird-app/flatpack", tag: "v0.1.196"'
+    assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_stripe", tag: "v0.13.0", require: false'
+    refute_includes gemfile, "recording_studio_attachable"
+    refute_includes gemfile, "recording_studio_library"
     refute_includes gemfile, "recording_studio/v3.0.0"
     refute_includes gemfile, 'tag: "v4.4.0"'
     refute_includes gemfile, 'tag: "v4.3.0"'
