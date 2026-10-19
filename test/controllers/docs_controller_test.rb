@@ -17,6 +17,7 @@ class DocsControllerTest < ActionDispatch::IntegrationTest
       user.password = TEST_PASSWORD
       user.password_confirmation = TEST_PASSWORD
     end
+    @user.update!(confirmed_at: Time.current) unless @user.confirmed?
 
     sign_in @user
   end
