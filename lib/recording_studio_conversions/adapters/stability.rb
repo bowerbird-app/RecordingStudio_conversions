@@ -3,8 +3,10 @@
 module RecordingStudioConversions
   module Adapters
     # Provider classes must survive a development reload. Registration asks
-    # Rails.autoloaders.main whether Zeitwerk will unload the constant.
-    # A required file, an autoload-once path, and a gem class are not unloaded.
+    # Rails.autoloaders.main whether Zeitwerk will unload the constant, and
+    # skips that question when the loader has no unloadable_cpath?. The check
+    # only fires when reloading is on. A gem class, a file required from the
+    # initializer before setup, and autoload_lib_once are not unloaded.
     # Anonymous classes are rejected here. The registry turns a repeated
     # registration of the same class into a no-op before this runs, and raises
     # "already registered" for a different class on that key.
@@ -21,6 +23,7 @@ module RecordingStudioConversions
       def reloadable?(adapter_class)
         loader = main_autoloader
         return false unless loader
+        return false unless loader.respond_to?(:unloadable_cpath?)
 
         loader.unloadable_cpath?(adapter_class.name.to_s)
       end
@@ -34,11 +37,12 @@ module RecordingStudioConversions
       end
 
       def anonymous_message(key)
-        "adapter #{key} is anonymous; define a named class in lib/ or a gem, not app/"
+        "adapter #{key} is anonymous; use a gem class, a file required from the initializer, or autoload_lib_once"
       end
 
       def reloadable_message(adapter_class)
-        "adapter #{adapter_class.name} is reloadable; define it in lib/ or a gem, not app/"
+        name = adapter_class.name
+        "adapter #{name} is reloadable; use a gem class, a file required from the initializer, or autoload_lib_once"
       end
     end
   end

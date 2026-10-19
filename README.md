@@ -212,15 +212,11 @@ A repeated notification for the same source id updates only a suppressed row. A 
 
 ## Providers (milestone 3)
 
-Provider contracts are named classes that the host's main Zeitwerk loader will not unload. Registration calls `Rails.autoloaders.main.unloadable_cpath?` when Rails is loaded. These classes pass:
+Provider contracts are named classes that the host's main Zeitwerk loader will not unload. Registration calls `Rails.autoloaders.main.unloadable_cpath?` when that method exists and Rails is loaded, and skips the check when it does not. An adapter is a gem class, a file required from the initializer, or `autoload_lib_once`.
 
-- a class from a gem
-- a host class you `require` from the initializer (a required file is not an unloadable autoload)
-- a class on `config.autoload_lib_once`
+The reload check runs only when reloading is on. An adapter under `app/` raises in development and passes in test and production, where Zeitwerk does not unload constants. Rails 8.1 `config.autoload_lib` adds `lib` to the reloadable autoloader, so a class autoloaded from there is rejected in development too. A file in that managed `lib/` that is required before Zeitwerk setup is accepted and survives reload. An initializer runs before setup, which is why requiring the file there works. An anonymous class is rejected. Registering the same key with the same class object again does nothing. A different class for that key raises `already registered`.
 
-Rails 8.1 `config.autoload_lib` adds `lib` to the reloadable autoloader, so a class autoloaded from there is rejected in development. A class under `app/` is rejected for the same reason. An anonymous class is rejected. Registering the same key with the same class object again does nothing. A different class for that key raises `already registered`.
-
-The registry starts empty, and the app boots with no destination. A destination enables an adapter. Option values such as an access token stay on the destination. `inspect`, `to_s`, and `pretty_print` on the destination and the configuration print option keys only. `to_h` omits option values. `Destination.new(**destination.to_h, options: destination.options)` round-trips, with the options passed back in by the caller. `deconstruct_keys` returns the raw options.
+The registry starts empty, and the app boots with no destination. A destination enables an adapter. Option values such as an access token stay on the destination. `inspect`, `to_s`, and `pretty_print` on the destination and the configuration print option keys only. `to_h` omits option values. `deconstruct`, `deconstruct_keys`, and `Marshal.dump` carry the raw options, so never cache, log, or serialize a destination. `Destination.new(**destination.to_h, options: destination.options)` round-trips, with the options passed back in by the caller.
 
 ```ruby
 # lib/example_adapter.rb — required below, not autoloaded
@@ -234,18 +230,18 @@ end
 
 RecordingStudioConversions.configure do |config|
   require Rails.root.join("lib/example_adapter")
+  config.register_adapter :example, ExampleAdapter
   config.conversion :purchase do
     source "stripe.invoice_paid"
   end
   config.conversion :first_purchase do
     source "stripe.invoice_paid"
   end
-  config.register_adapter :example, ExampleAdapter
   config.destination :example, adapter: :example, access_token: ENV.fetch("EXAMPLE_ACCESS_TOKEN")
 end
 ```
 
-`conversion_event` maps a conversion rule key (`Rule#key`), not the source event name. `purchase` and `first_purchase` can share a source and still name different provider events. `event_name_for` reads that rule key. When rules are already configured, each `conversion_event` key must be one of them. `configure` checks again after the block. Field `events` and `required_for` must be configured source names (subscription canonical names, or a rule `source`) when those sources exist.
+`conversion_event` maps a conversion rule key (`Rule#key`), not the source event name. `purchase` and `first_purchase` can share a source and still name different provider events. `event_name_for` reads that rule key. `register` and `configure` do not check those keys, so the adapter may be registered before its rule in the same block or in a later initializer. `RecordingStudioConversions.check!` runs once from the engine's `config.after_initialize`, after every initializer. A conversion event that is still not a configured rule raises there. Field `events` and `required_for` must be configured source names (subscription canonical names, or a rule `source`) when those sources exist. That source check still runs at registration.
 
 Attribution and identity fields declare source, required or optional, alternatives, a transform name, consent category, sensitivity, and retention. Every alternative must name another declared field. `transform` is stored and not called.
 

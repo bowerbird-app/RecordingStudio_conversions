@@ -12,11 +12,15 @@ RecordingStudioConversions.configure do |config|
   # config.excluded_subscription_statuses = %w[canceled]
 
   # Providers are named classes Zeitwerk will not unload: a gem class, a file
-  # required from this initializer, or config.autoload_lib_once. Classes
-  # autoloaded from app/ or from Rails 8.1 autoload_lib are rejected, as is
-  # an anonymous class. Registering the same class again is a no-op.
-  # An empty registry is a valid boot. Option values stay out of to_h.
-  # inspect and to_s print option keys only. deconstruct_keys returns raw options.
+  # required from this initializer, or config.autoload_lib_once. The reload
+  # check runs only when reloading is on, so an app/ class raises in
+  # development and passes in test and production. A class autoloaded from
+  # Rails 8.1 autoload_lib is rejected in development. An anonymous class is
+  # rejected. Registering the same class again is a no-op. Rule keys are
+  # checked once at boot, so register the adapter before its rule if you need to.
+  # An empty registry is a valid boot. to_h omits option values. inspect and
+  # to_s print option keys only. deconstruct, deconstruct_keys, and Marshal.dump
+  # carry raw options, so never cache, log, or serialize a destination.
   # config.register_adapter :example, ExampleAdapter
   # config.destination :example, adapter: :example
 end

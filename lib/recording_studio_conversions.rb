@@ -23,6 +23,12 @@ module RecordingStudioConversions
 
     def configure
       yield(configuration) if block_given?
+    end
+
+    # Rule keys are checked here, not during register or configure, so a later
+    # initializer can still add the rule. The engine runs this once from
+    # config.after_initialize.
+    def check!
       configuration.adapters.check!(subscriptions: configuration.subscriptions, rules: configuration.rules)
     end
 

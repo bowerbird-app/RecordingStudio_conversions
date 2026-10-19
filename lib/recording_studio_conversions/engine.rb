@@ -68,6 +68,10 @@ module RecordingStudioConversions
       config.after_initialize { RecordingStudioConversions::UserConfirmation.assert_confirmable! }
     end
 
+    initializer "recording_studio_conversions.check_contracts" do
+      config.after_initialize { RecordingStudioConversions.check! }
+    end
+
     # Run before_initialize hooks
     initializer "recording_studio_conversions.before_initialize",
                 before: "recording_studio_conversions.load_config" do |_app|

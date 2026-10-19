@@ -45,7 +45,6 @@ module RecordingStudioConversions
         assert_complete!(symbol, adapter_class)
         assert_alternatives!(symbol, adapter_class)
         assert_sources!(symbol, adapter_class, subscriptions, rules)
-        assert_conversion_events!(symbol, adapter_class, rules)
       end
 
       def adapter?(adapter_class)
@@ -100,9 +99,7 @@ module RecordingStudioConversions
       end
 
       def assert_conversion_events!(symbol, adapter_class, rules)
-        return if Array(rules).empty?
-
-        known = rules.map { |rule| rule.key.to_s }
+        known = Array(rules).map { |rule| rule.key.to_s }
         unknown = adapter_class.conversion_events.keys - known
         return if unknown.empty?
 

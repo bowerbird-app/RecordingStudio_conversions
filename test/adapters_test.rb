@@ -16,6 +16,12 @@ class AdaptersTest < Minitest::Test
     @configuration.destination :ads, adapter: :fake, access_token: "super-secret", pixel_id: "px_1"
   end
 
+  def teardown
+    return unless @restore_configuration_set
+
+    RecordingStudioConversions.instance_variable_set(:@configuration, @restore_configuration)
+  end
+
   def test_registry_enables_only_destinations
     assert_equal %i[fake server_only], @configuration.adapters.keys
     assert_equal [FakeAdsAdapter], @configuration.enabled_adapters
@@ -37,6 +43,9 @@ class AdaptersTest < Minitest::Test
     assert_equal :fake, restored.adapter_key
     assert_equal "px_1", restored.options[:pixel_id]
     assert_equal "super-secret", destination.deconstruct_keys(nil).dig(:options, :access_token)
+    assert_equal "super-secret", destination.deconstruct.last[:access_token]
+    dumped = Marshal.load(Marshal.dump(destination))
+    assert_equal "super-secret", dumped.options[:access_token]
   end
 
   def test_inspect_and_pretty_print_redact_destination_secrets
@@ -259,28 +268,85 @@ class AdaptersTest < Minitest::Test
     refute_registered_with_zeitwerk
   end
 
-  def test_configure_checks_conversion_events_against_rules
-    configuration = RecordingStudioConversions::Configuration.new
-    previous = RecordingStudioConversions.instance_variable_get(:@configuration)
-    RecordingStudioConversions.instance_variable_set(:@configuration, configuration)
-
-    error = assert_raises(ArgumentError) do
-      RecordingStudioConversions.configure do |config|
-        config.conversion(:trial) { source "stripe.trial_started" }
-        config.register_adapter :fake, FakeAdsAdapter
-      end
-    end
-    assert_match(/purchase/, error.message)
-    assert_match(/configured rule/, error.message)
+  def test_check_runs_after_a_rule_is_configured
+    configuration = swapped_configuration
 
     RecordingStudioConversions.configure do |config|
+      config.register_adapter :fake, FakeAdsAdapter
+      config.conversion(:trial) { source "stripe.trial_started" }
       config.conversion(:purchase) { source "stripe.invoice_paid" }
       config.conversion(:first_purchase) { source "stripe.invoice_paid" }
-      config.register_adapter :fake, FakeAdsAdapter
     end
+    boot_check!
     assert configuration.adapters.registered?(:fake)
+
+    configuration.clear_rules!
+    configuration.conversion(:trial) { source "stripe.trial_started" }
+    error = assert_raises(ArgumentError) { RecordingStudioConversions.check! }
+    assert_match(/purchase/, error.message)
+    assert_match(/configured rule/, error.message)
+  end
+
+  def test_overriding_consent_retags_inherited_fields
+    parent = named_adapter(:ConsentParent) do
+      key :consent_parent
+      consent category: :advertising
+      delivery_channels :server
+      attribution do
+        field :click_id, source: :query_parameter, required: false, sensitivity: :identifier
+      end
+      identity do
+        field :external_id, source: :cookie, required: true, sensitivity: :identifier
+      end
+    end
+    child = Class.new(parent) do
+      consent category: :analytics
+    end
+    self.class.const_set(:ConsentChild, child)
+
+    assert_equal [:analytics], child.fields.map(&:consent_category).uniq
+    assert_equal [:advertising], parent.fields.map(&:consent_category).uniq
+  end
+
+  def test_unloadable_cpath_guard_matches_zeitwerk_2_8_3
+    assert_equal "2.8.3", Zeitwerk::VERSION
+    assert Zeitwerk::Loader.allocate.respond_to?(:unloadable_cpath?)
+
+    adapter = named_adapter(:LegacyLoaderAdapter) do
+      key :legacy_loader
+      consent category: :advertising
+      delivery_channels :server
+    end
+    previous = Rails.application
+    Rails.application = Struct.new(:autoloaders).new(Struct.new(:main).new(Object.new))
+    @configuration.register_adapter :legacy_loader, adapter
+    assert @configuration.adapters.registered?(:legacy_loader)
   ensure
-    RecordingStudioConversions.instance_variable_set(:@configuration, previous)
+    Rails.application = previous if defined?(previous)
+  end
+
+  def test_required_managed_lib_adapter_survives_reload
+    root = Dir.mktmpdir
+    loader = Zeitwerk::Loader.new
+    previous = Rails.application
+    write_adapter(root, "managed_lib_adapter", :managed_lib)
+    loader.push_dir(root)
+    loader.enable_reloading
+    require File.join(root, "managed_lib_adapter.rb")
+    loader.setup
+    Rails.application = Struct.new(:autoloaders).new(Struct.new(:main).new(loader))
+
+    refute loader.unloadable_cpath?(ManagedLibAdapter.name)
+    @configuration.register_adapter :managed_lib, ManagedLibAdapter
+    loader.reload
+    assert Object.const_defined?(:ManagedLibAdapter)
+    assert_equal ManagedLibAdapter, @configuration.adapters.fetch(:managed_lib)
+    refute loader.unloadable_cpath?(ManagedLibAdapter.name)
+  ensure
+    Rails.application = previous if defined?(previous)
+    teardown_loader(loader)
+    remove_host_adapter(:ManagedLibAdapter)
+    FileUtils.rm_rf(root) if defined?(root) && root
   end
 
   def test_registration_checks_alternatives_and_subscription_names
@@ -428,6 +494,29 @@ class AdaptersTest < Minitest::Test
         delivery_channels :server
       end
     RUBY
+  end
+
+  def swapped_configuration
+    configuration = RecordingStudioConversions::Configuration.new
+    @restore_configuration = RecordingStudioConversions.instance_variable_get(:@configuration)
+    @restore_configuration_set = true
+    RecordingStudioConversions.instance_variable_set(:@configuration, configuration)
+    configuration
+  end
+
+  def boot_check!
+    callbacks = []
+    host = Object.new
+    host.define_singleton_method(:config) do
+      target = Object.new
+      target.define_singleton_method(:after_initialize) { |&block| callbacks << block }
+      target
+    end
+    initializer = RecordingStudioConversions::Engine.initializers.find do |entry|
+      entry.name == "recording_studio_conversions.check_contracts"
+    end
+    host.instance_exec(&initializer.block)
+    callbacks.each(&:call)
   end
 
   def named_adapter(const_name, &)

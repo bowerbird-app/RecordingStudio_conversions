@@ -50,6 +50,16 @@ module RecordingStudioConversions
 
         @consent = Consent.build(category: category, collection: collection, delivery: delivery)
         @consent_from_parent = false
+        retag_inherited_fields(@consent.category)
+      end
+
+      def retag_inherited_fields(category)
+        @attribution_fields = retagged(@attribution_fields, category)
+        @identity_fields = retagged(@identity_fields, category)
+      end
+
+      def retagged(fields, category)
+        Array(fields).map { |field| field.with(consent_category: category) }
       end
 
       def consent_locked?
