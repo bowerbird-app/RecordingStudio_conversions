@@ -16,9 +16,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Root and dummy Gemfiles pin `recording_studio_stripe` at git tag `v0.13.0` with `require: false`. The hand-written Stripe fixture already matches `DomainEvent#instrument_payload` on that tag: the invoice value is integer `amount`, copied from Stripe `amount_paid`.
 
+### Fixed
+- Destination and configuration `inspect` and `pretty_print` list destination option keys and redact the values.
+- Registration rejects an anonymous or reloadable adapter class. Alternatives must name a declared field. `required_for` and `events` must name a configured subscription. `event_name_for` keys by the conversion rule name. Subclasses copy the parent adapter's declarations. `within_age?` rejects a `Date` and a timestamp more than five minutes in the future.
+
 ### Upgrade notes
-- Register providers in Ruby with `config.register_adapter` and `config.destination`. Shipping with none configured is valid.
-- When Stripe events are needed, pin `recording_studio_stripe` at git tag `v0.13.0`. This gem does not depend on it at runtime.
+- Register providers in Ruby with `config.register_adapter` and `config.destination`. Shipping with none configured is valid. Define adapter classes in `lib/` or a gem. Classes under `app/` are reloadable and are rejected.
+- `recording_studio_views` `~> 0.3.0` is a runtime dependency and is GitHub-only, not a RubyGems release. Pin `recording_studio_views` at tag `v0.3.0` and `recording_studio_logs` at tag `v0.4.0` (Views depends on Logs).
+- Run `bin/rails generate recording_studio_conversions:migrations`, then `bin/rails db:migrate`.
+- When Stripe events are needed, pin `recording_studio_stripe` at git tag `v0.13.0` with `require: false`. This gem does not depend on it at runtime.
 - Hosts that do not load RecordingStudio_users use `config.user_class_name` (default `"User"`) and the four Devise confirmable columns: `confirmation_token`, `confirmed_at`, `confirmation_sent_at`, and `unconfirmed_email`.
 
 ## [0.2.3] - 2026-10-01

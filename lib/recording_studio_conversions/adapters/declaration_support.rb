@@ -8,6 +8,7 @@ module RecordingStudioConversions
 
       def prepare_declarations
         @key = nil
+        @key_from_parent = false
         @attribution_fields = []
         @identity_fields = []
         @consent = nil
@@ -17,15 +18,43 @@ module RecordingStudioConversions
         @event_names = {}
       end
 
+      def copy_declarations_from(parent)
+        copy_identity_from(parent)
+        copy_contract_from(parent)
+      end
+
+      def copy_identity_from(parent)
+        @key = parent.instance_variable_get(:@key)
+        @key_from_parent = !@key.nil?
+        @consent = parent.instance_variable_get(:@consent)
+        @max_event_age = parent.instance_variable_get(:@max_event_age)
+        @browser_module_name = parent.instance_variable_get(:@browser_module_name)
+      end
+
+      def copy_contract_from(parent)
+        @attribution_fields = parent.instance_variable_get(:@attribution_fields).dup
+        @identity_fields = parent.instance_variable_get(:@identity_fields).dup
+        channels = parent.instance_variable_get(:@delivery_channels)
+        @delivery_channels = channels&.dup&.freeze
+        @event_names = parent.instance_variable_get(:@event_names).dup
+      end
+
       def consent_read?(category, collection, delivery)
         category.nil? && collection == true && delivery == true
       end
 
       def assign_key(value)
         raise ArgumentError, "adapter key is required" if value.blank?
-        raise ArgumentError, "adapter key is already #{@key}" if @key && @key != value.to_sym
 
-        @key = value.to_sym
+        symbol = value.to_sym
+        raise ArgumentError, "adapter key is already #{@key}" if locked_key?(symbol)
+
+        @key = symbol
+        @key_from_parent = false
+      end
+
+      def locked_key?(symbol)
+        @key && @key != symbol && !@key_from_parent
       end
 
       def assign_channels(names)

@@ -35,6 +35,8 @@ module RecordingStudioConversions
         events.empty? || events.include?(event_name.to_s)
       end
 
+      # A nil channel applies every channel's requirements. An empty channel
+      # list on the field itself means the field applies on every channel.
       def channel_match?(channel)
         return true if channel.nil? || channels.empty?
 

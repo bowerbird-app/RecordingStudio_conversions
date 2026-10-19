@@ -7,11 +7,12 @@ module RecordingStudioConversions
     class Base
       extend Declaration
       extend Queries
+      include Delivery
 
       class << self
         def inherited(subclass)
           super
-          subclass.send(:prepare_declarations)
+          subclass.send(:copy_declarations_from, self)
         end
       end
 

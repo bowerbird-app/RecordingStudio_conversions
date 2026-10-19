@@ -8,7 +8,9 @@ require_relative "adapters/field_options"
 require_relative "adapters/declaration_support"
 require_relative "adapters/declaration"
 require_relative "adapters/queries"
+require_relative "adapters/delivery"
 require_relative "adapters/base"
+require_relative "adapters/stability"
 require_relative "adapters/registry"
 
 module RecordingStudioConversions

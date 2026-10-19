@@ -11,8 +11,10 @@ RecordingStudioConversions.configure do |config|
   # incomplete_expired and unpaid are not excluded unless you add them.
   # config.excluded_subscription_statuses = %w[canceled]
 
-  # Providers are code-defined. Register an adapter, then a destination, when
-  # one is enabled. An empty registry is a valid boot.
+  # Providers are named classes in lib/ or a gem. Classes under app/ are
+  # reloaded in development and registration rejects them, as does an
+  # anonymous class. An empty registry is a valid boot. Option values stay
+  # out of to_h and inspect.
   # config.register_adapter :example, ExampleAdapter
   # config.destination :example, adapter: :example
 end

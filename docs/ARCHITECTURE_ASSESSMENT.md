@@ -288,7 +288,7 @@ No change required. Keep `"recordings.event_created"` inside `record!` as histor
 
 ### `RecordingStudio_views`
 
-The repository has to stop being the gem template and become the page-view owner: collector, partitioned log registered through `RecordingStudioLogs.register`, and `"page_view.recorded.recording_studio_views"`. Tag `v0.3.0` (`9ac4ab9533d164f024ac373d730b4a5e4fda39f9`) does that, and `PageViewPayload::KEYS` includes `page_view_id` and `recording_id`. Decided 2026-10-19: design against that tag and ignore open Views pull requests. Conversions will not grow a parallel counter. This work stays in the Views repository.
+The repository has to stop being the gem template and become the page-view owner: collector, partitioned log registered through `RecordingStudioLogs.register`, and `"page_view.recorded.recording_studio_views"`. Tag `v0.3.0` (`9ac4ab9533d164f024ac373d730b4a5e4fda39f9`) does that, and `PageViewPayload::KEYS` includes `page_view_id` and `recording_id`. Decided 2026-10-19: design against that tag. Planning note, not from Marco: open Views pull requests are left alone. Conversions will not grow a parallel counter. This work stays in the Views repository.
 
 ### `RecordingStudio_logs`
 
@@ -489,10 +489,10 @@ An adapter, registered by key, answers:
 - `browser_module` — a Stimulus controller name or `nil`
 - `delivery_channels` — subset of `server` and `browser`
 - `event_name_for(rule)` — external name such as `StartTrial`
-- `build_payload(occurrence, fields)` and `deliver(payload)`
-- `normalize_error` — retryable or permanent
+- `build_payload(occurrence, fields)` and `deliver(payload)` — instance methods that raise `NotImplementedError` until delivery. Instance methods so `deliver` can read that destination's options.
+- `normalize_error` — retryable or permanent. Instance method, raises `NotImplementedError` until then.
 - `max_event_age`
-- `dedup_id_for(occurrence)` — stable
+- `dedup_id_for(occurrence)` — stable. Instance method, raises `NotImplementedError` until then.
 
 The collector asks every enabled adapter for its fields and captures that set. Adding Google or TikTok is a new adapter class plus a `config.destination` entry. It does not change the visitors table, the observation columns, the matcher, the Views subscription, or the host layout helper. The layout helper prints `recording_studio_conversions_tags`; enabled browser modules are data on that tag.
 
@@ -506,9 +506,9 @@ M1 is this document.
 
 **M2 — Event and conversion core.** Subscriptions, canonical envelope, code-defined rules, deterministic match, one occurrence row per `(rule_key, source_event_id)` with suppressed-to-matched re-evaluation, and the one-row-per-root acquisition subject the host writes. Subscribe by name to Users, Stripe, and Views. Contract fixtures are hand-written for now. They mirror `RegistrationCompleted::EVENT` (`user_id` and `method`), Stripe `DomainEvent#instrument_payload`, and Views `PageViewPayload.build` (`page_view_id` and `recording_id` included). Generated fixtures, built by calling those methods, wait until the Views and Stripe gems are released. No provider calls.
 
-**M3 — Provider declarations.** Adapter registry and field, consent, channel, and age contracts. A fake adapter in tests. No Meta HTTP yet. Shipped in 0.3.0 as code-defined declarations only. `build_payload`, `deliver`, `normalize_error`, and `dedup_id_for` stay on the section 5 boundary for delivery (M5 and M6). No observation rows, browser collection, delivery jobs, or Meta adapter.
+**M3 — Provider declarations.** Adapter registry and field, consent, channel, and age contracts. A fake adapter in tests. No Meta HTTP yet. Shipped in 0.3.0 as code-defined declarations only. `build_payload`, `deliver`, `normalize_error`, and `dedup_id_for` are instance methods that raise `NotImplementedError` until delivery (M5 and M6). No observation rows, browser collection, delivery jobs, or Meta adapter.
 
-**M4 — Attribution and browser collection.** Observation rows, consent checks before advertising use of the existing device key, and the server-side link from that key to `users.id` on registration. No new visitor cookie. Turbo-safe single initialization. Not gated by the 2026-10-19 decisions: one acquisition user per workspace, the device-key visitor id, invoice value `amount_paid`, Accessible `:view`, and page views from `RecordingStudio_views` tag `v0.3.0`.
+**M4 — Attribution and browser collection.** Observation rows, consent checks before advertising use of the existing device key, and the server-side link from that key to `users.id` on registration. No new visitor cookie. Turbo-safe single initialization. Planning note, not a decision from Marco: the 2026-10-19 decisions (one acquisition user per workspace, the device-key visitor id, invoice value `amount_paid`, Accessible `:view`, and page views designed against `RecordingStudio_views` tag `v0.3.0`) are already written down.
 
 **M5 — Durable delivery.** Occurrences, deliveries, attempts, ActiveJob, backoff, consent re-check, Logs registration for diagnostics, Metrics counts. External HTTP still stubbed.
 
@@ -542,13 +542,19 @@ Recorded 2026-10-19. These close the questions above.
 1. **Attachable and Library.** Conversions stays clear of both gems. No dependency and no proposed change.
 2. **Users event.** Do not change `RecordingStudio_users`. Keep `"registration.completed.recording_studio_user"` (`RegistrationCompleted::EVENT`) as `user_id` and `method`. Conversions calls `confirmed?` on the user row when it handles the event, and stores `confirmed_at` when that is true. `created_at` is the wrong signal: OTP inserts the user row before the code is accepted. The host must run `bin/rails generate recording_studio_user:migrations`, which copies `add_devise_confirmable_to_users` (`confirmation_token`, `confirmed_at`, `confirmation_sent_at`, `unconfirmed_email`, unique index on `confirmation_token`). Devise `:confirmable` supplies `confirmed?`. When `RecordingStudioUser` is loaded, the user class name comes from `RecordingStudioUser.config.user_class_name`. Otherwise `configuration.user_class_name` defaults to `"User"`, and the install template sets that. Conversions raises only when that class is loaded, its table exists, and it does not implement `confirmed?`. It does not raise during `db:migrate` or the generator, before the class or table exists. The occurrence does not copy email.
 3. **Who writes the acquisition user.** The host calls Conversions after Onboarding has created the workspace. Registration still fires before that workspace exists, so Conversions does not guess a root during registration.
-4. **One acquisition user per root.** Decided 2026-10-19, not assumed. Each workspace has exactly one acquisition user, recorded by the host after Onboarding creates the workspace. The schema enforces it with a unique index on `root_recording_id`. The host records the row with `upsert` on that index. Replacing the user overwrites `subject_id` on that same row and does not rewrite the recording id. The previous user is discarded. That no-history trade-off is accepted: operators see the current acquisition user, not a log of replacements. First-occurrence matching for a rooted rule stays on the root, so the replacement does not earn a second StartTrial. This does not gate M4.
-5. **`invoice_paid` money.** Decided 2026-10-19. The invoice value is Stripe `amount_paid`. `amount` is that integer. `first_payment` is a boolean: the first paid invoice for that subscription. `invoice_id`, `billing_reason` (string, `""` when missing), and `subscription_status` (string) are on the same `invoice_paid` payload, confirmed on tag `v0.13.0`. Conversions does not recompute them. Excluding `subscription_status` `"canceled"` is the default policy (`excluded_subscription_statuses`). Missing or blank values stay unknown and do not change the match. This does not gate M4.
+4. **One acquisition user per root.** Decided 2026-10-19, not assumed. Each workspace has exactly one acquisition user, recorded by the host after Onboarding creates the workspace. The schema enforces it with a unique index on `root_recording_id`. The host records the row with `upsert` on that index. Replacing the user overwrites `subject_id` on that same row and does not rewrite the recording id. The previous user is discarded. That no-history trade-off is accepted: operators see the current acquisition user, not a log of replacements. First-occurrence matching for a rooted rule stays on the root, so the replacement does not earn a second StartTrial.
+5. **`invoice_paid` money.** Decided 2026-10-19. The invoice value is Stripe `amount_paid`. `amount` is that integer. `first_payment` is a boolean: the first paid invoice for that subscription. `invoice_id`, `billing_reason` (string, `""` when missing), and `subscription_status` (string) are on the same `invoice_paid` payload, confirmed on tag `v0.13.0`. Conversions does not recompute them. Excluding `subscription_status` `"canceled"` is the default policy (`excluded_subscription_statuses`). Missing or blank values stay unknown and do not change the match.
 6. **Trial fee and `trial_started`.** A trial-fee invoice is not a paid invoice and must not count as `first_payment`. `trial_started` fires once for a subscription that is created already trialing or that transitions into `trialing`.
-7. **Page views.** Decided 2026-10-19. Page views come from `RecordingStudio_views`, designed against tag `v0.3.0`. Ignore any open Views pull requests. The tag follows the Logs dummy `site_views` shape (`resource_type`, `root_recording_id`, `recording_id`) and emits `page_view.recorded.recording_studio_views`. This repo does not change Views. This does not gate M4.
-8. **Visitor id.** Decided 2026-10-19. Reuse Root Switchable's anonymous device key. Do not create a visitor UUID table or a second cookie. Details are in the next section. Conversions reads the key through one interface. That interface's only source is Root Switchable. This does not gate M4.
-9. **Admin access.** Decided 2026-10-19. Accessible role `:view` on the admin recording is enough for the future admin pages. No dedicated action key. This does not gate M4.
+7. **Page views.** Decided 2026-10-19. Page views come from `RecordingStudio_views`, designed against tag `v0.3.0`. The tag follows the Logs dummy `site_views` shape (`resource_type`, `root_recording_id`, `recording_id`) and emits `page_view.recorded.recording_studio_views`. This repo does not change Views.
+8. **Visitor id.** Decided 2026-10-19. Reuse Root Switchable's anonymous device key. Do not create a visitor UUID table or a second cookie. Details are in the next section. Conversions reads the key through one interface. That interface's only source is Root Switchable.
+9. **Admin access.** Decided 2026-10-19. Accessible role `:view` on the admin recording is enough for the future admin pages. No dedicated action key.
 10. **Crash after the Stripe commit.** Recover by replaying the webhook row, or by re-fetching from Stripe any value the stored payload cannot rebuild (`amount_paid`, currency). Do not drop the conversion because the in-process notification was lost.
+
+Planning notes from this milestone, not decisions from Marco:
+
+- Design work follows Views tag `v0.3.0` and does not chase open Views pull requests. Marco relayed the tag. He did not say to ignore those pull requests.
+- The five decisions dated 2026-10-19 are already written down. Later milestone notes do not treat them as open questions.
+- Consent before advertising use of the device key is a possible later topic. It is not a plan Marco signed off on.
 
 ## Root Switchable device key
 
@@ -593,16 +599,16 @@ Conversions will not read `_rsab_vid` and will not write either cookie. An anony
 
 ## Open questions for Marco
 
-The original ten questions are decided, including these, recorded 2026-10-19 and removed from this list so they do not gate M4:
+The original ten questions are decided. These five were recorded on 2026-10-19 and are no longer open:
 
 - Each workspace has exactly one acquisition user, recorded by the host after Onboarding creates the workspace.
 - The visitor id reuses Root Switchable's anonymous device key. No new visitor cookie.
 - The invoice value is `amount_paid`.
 - Accessible's `:view` role is enough for the future admin pages.
-- Page views come from `RecordingStudio_views`, designed against tag `v0.3.0`. Open Views pull requests are ignored.
+- Page views are designed against `RecordingStudio_views` tag `v0.3.0`.
 
-Still open, and none of these block M4:
+Still open:
 
-1. The three device-key gaps above (consent, one-year rotation, no anonymous database row). M4 is where consent before advertising use of the device key gets implemented.
+1. The three device-key gaps above (consent, one-year rotation, no anonymous database row). Planning note, not a decision from Marco: consent before advertising use of the device key is a possible later topic and is not settled.
 2. The AB tests visitor cookie (`:_rsab_vid`) versus decision 8.
 3. **Generated contract fixtures.** The Stripe half was checked by reading `DomainEvent#instrument_payload` on tag `v0.13.0`. The hand-written fixture matches (`amount` from `amount_paid`), so it was not regenerated by calling the method. Calling it from this suite would load the Stripe engine, which appends migrations. Views fixtures are still hand-written against tag `v0.3.0`.

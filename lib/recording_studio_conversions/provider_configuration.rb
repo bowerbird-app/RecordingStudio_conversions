@@ -4,7 +4,7 @@ module RecordingStudioConversions
   # Host registration of provider adapters and the destinations that enable them.
   module ProviderConfiguration
     def register_adapter(key, adapter_class)
-      adapters.register(key, adapter_class)
+      adapters.register(key, adapter_class, subscriptions: subscriptions)
     end
 
     def destination(key, adapter:, **options)

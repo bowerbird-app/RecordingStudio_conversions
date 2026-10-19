@@ -50,8 +50,10 @@ module RecordingStudioConversions
         assign_browser_module(name)
       end
 
-      def event(canonical_name, as:)
-        name = canonical_name.to_s
+      # Maps a conversion rule name (Rule#key) to the provider event name.
+      # purchase and first_purchase can share a source and still differ here.
+      def event(rule_name, as:)
+        name = rule_name.to_s
         raise ArgumentError, "event name is required" if name.blank? || as.blank?
         raise ArgumentError, "event #{name} is already declared" if @event_names.key?(name)
 

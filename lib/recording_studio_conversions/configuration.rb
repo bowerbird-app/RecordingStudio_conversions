@@ -58,6 +58,14 @@ module RecordingStudioConversions
       }
     end
 
+    def inspect
+      "#<#{self.class.name} #{diagnostic_summary}>"
+    end
+
+    def pretty_print(printer)
+      printer.text(inspect)
+    end
+
     def merge!(hash)
       return unless hash.respond_to?(:each)
 
@@ -65,6 +73,17 @@ module RecordingStudioConversions
         setter = "#{key}="
         public_send(setter, value) if respond_to?(setter)
       end
+    end
+
+    private
+
+    def diagnostic_summary
+      "raise_errors=#{raise_errors.inspect} user_class_name=#{user_class_name.inspect} " \
+        "adapters=#{adapters.keys.inspect} destinations=#{destination_summaries.inspect}"
+    end
+
+    def destination_summaries
+      destinations.map { |item| { key: item.key, adapter_key: item.adapter_key, option_keys: item.options.keys } }
     end
   end
 end

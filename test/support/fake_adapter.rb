@@ -8,8 +8,9 @@ class FakeAdsAdapter < RecordingStudioConversions::Adapters::Base
   max_event_age 7.days
   browser_module "fake-ads"
 
-  event "stripe.trial_started", as: "StartTrial"
-  event "stripe.invoice_paid", as: "Purchase"
+  event "trial", as: "StartTrial"
+  event "purchase", as: "Purchase"
+  event "first_purchase", as: "Subscribe"
 
   attribution do
     field :click_id,
@@ -22,6 +23,12 @@ class FakeAdsAdapter < RecordingStudioConversions::Adapters::Base
           retention: 90.days,
           sensitivity: :identifier,
           events: ["stripe.trial_started", "stripe.invoice_paid"],
+          channels: [:server]
+
+    field :backup_click_id,
+          source: :query_parameter,
+          required: false,
+          sensitivity: :identifier,
           channels: [:server]
 
     field :browser_id,

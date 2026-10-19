@@ -212,16 +212,35 @@ A repeated notification for the same source id updates only a suppressed row. A 
 
 ## Providers (milestone 3)
 
-Provider contracts are Ruby. The registry starts empty, and the app boots with no destination. A destination enables an adapter. Option values such as an access token stay on the destination and are left out of `configuration.to_h`.
+Provider contracts are named Ruby classes in `lib/` or in a gem. The registry starts empty, and the app boots with no destination. A destination enables an adapter. Option values such as an access token stay on the destination. They are left out of `configuration.to_h`. `inspect` and `pretty_print` on the destination and the configuration print option keys only.
+
+A class under `app/` is reloadable in development and registration rejects it. An anonymous class is rejected. Registering the same key twice still raises `already registered`.
 
 ```ruby
+# lib/example_adapter.rb
+class ExampleAdapter < RecordingStudioConversions::Adapters::Base
+  key :example
+  consent category: :advertising, collection: true, delivery: true
+  delivery_channels :server
+  event "purchase", as: "Purchase"
+  event "first_purchase", as: "Subscribe"
+end
+
 RecordingStudioConversions.configure do |config|
   config.register_adapter :example, ExampleAdapter
-  config.destination :example, adapter: :example
+  config.destination :example, adapter: :example, access_token: ENV["EXAMPLE_ACCESS_TOKEN"]
 end
 ```
 
-An adapter subclass declares consent, delivery channels (`:server` and `:browser`), an optional max event age, an optional browser module name, and external event names. Attribution and identity fields declare source, required or optional, alternatives, a transform name, consent category, sensitivity, and retention. `transform` is stored and not called. `sufficient?` and `within_age?` answer from those declarations. This milestone does not collect fields, deliver them, or call a provider.
+`event` maps a conversion rule name (`Rule#key`). `purchase` and `first_purchase` can share a source and still name different provider events. `event_name_for` reads that rule name.
+
+Attribution and identity fields declare source, required or optional, alternatives, a transform name, consent category, sensitivity, and retention. Every alternative must name another declared field. `transform` is stored and not called. When the configuration has subscriptions, field `events` and `required_for` must be canonical subscription names.
+
+`sufficient?(available, event_name:, channel: nil)` answers from those declarations. `channel: nil` applies every channel's requirements together, so a server-only required field still counts.
+
+`within_age?` accepts a `Time`, `DateTime`, or `ActiveSupport::TimeWithZone`. A `Date` raises `ArgumentError`. A timestamp more than 5 minutes ahead of now is not within age. That window is clock skew (`Adapters::Queries::FUTURE_CLOCK_SKEW`).
+
+`build_payload`, `deliver`, `normalize_error`, and `dedup_id_for` are instance methods and raise `NotImplementedError`. They are instance methods because `deliver` needs that destination's options. This milestone does not collect fields, deliver them, or call a provider.
 
 ## Tech Stack
 

@@ -43,13 +43,13 @@ The architecture must support future providers such as Google Ads and TikTok wit
 
 ### Decisions recorded 2026-10-19
 
-These are decided. They do not gate later milestones.
-
 1. Each workspace has exactly one acquisition user. The host records it after Onboarding creates the workspace. Registration does not guess a root.
 2. The visitor id reuses Root Switchable's anonymous device key. Conversions does not set a visitor cookie.
 3. The invoice value is Stripe `amount_paid`, an integer. `DomainEvent#instrument_payload` publishes that integer as `amount`.
 4. Accessible's `:view` role is enough for the future admin pages. No dedicated action key.
-5. Page views come from `RecordingStudio_views`, designed against tag `v0.3.0`. Ignore open Views pull requests.
+5. Page views come from `RecordingStudio_views`, designed against tag `v0.3.0`.
+
+Planning note, not one of those decisions: this work follows Views tag `v0.3.0` and leaves open Views pull requests alone. The five decisions above are recorded so later notes do not treat them as open questions.
 
 ---
 
@@ -233,7 +233,7 @@ The exact event integration must follow the owning gem's lifecycle semantics.
 
 **Recording Studio Views is the owner of page-view collection.**
 
-Decided 2026-10-19: design that contract against `RecordingStudio_views` tag `v0.3.0`. Ignore open Views pull requests.
+Decided 2026-10-19: design that contract against `RecordingStudio_views` tag `v0.3.0`. Planning note, not from Marco: open Views pull requests are left alone.
 
 Conversions must consume view events rather than implementing its own independent page-view counting infrastructure.
 
