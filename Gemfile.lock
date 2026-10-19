@@ -6,12 +6,32 @@ GIT
     recording_studio (4.7.0)
       rails (>= 8.1.0)
 
+GIT
+  remote: https://github.com/bowerbird-app/RecordingStudio_logs.git
+  revision: a8e936a924101c4e6c250f46c11af794b8118707
+  tag: v0.4.0
+  specs:
+    recording_studio_logs (0.4.0)
+      rails (~> 8.1.0)
+      recording_studio (~> 4.2)
+
+GIT
+  remote: https://github.com/bowerbird-app/RecordingStudio_views.git
+  revision: 9ac4ab9533d164f024ac373d730b4a5e4fda39f9
+  tag: v0.3.0
+  specs:
+    recording_studio_views (0.3.0)
+      rails (~> 8.1.0)
+      recording_studio (~> 4.2)
+      recording_studio_logs (~> 0.4.0)
+
 PATH
   remote: .
   specs:
     gem_template (0.2.3)
       rails (~> 8.1.0)
       recording_studio (~> 4.2)
+      recording_studio_views (~> 0.3.0)
 
 GEM
   remote: https://rubygems.org/
@@ -299,6 +319,8 @@ DEPENDENCIES
   minitest-mock
   puma
   recording_studio!
+  recording_studio_logs!
+  recording_studio_views!
   rubocop
   rubocop-rails
   simplecov
@@ -380,6 +402,8 @@ CHECKSUMS
   rbs (4.2.0) sha256=51f7b886dcc05bc09e10b901daa6a81829f6adc03101d6ca9ea4aac6103e0674
   rdoc (8.1.0) sha256=befc37880a5cfd36dcb176c748b5fd5ee39dd3536a75e81824e4972ce230f60a
   recording_studio (4.7.0)
+  recording_studio_logs (0.4.0)
+  recording_studio_views (0.3.0)
   regexp_parser (2.13.1) sha256=5aedb6b7c35688f51e86eef17a15374dfd287c83f4ca644b2c5f3ec50a33b44b
   reline (0.7.0) sha256=5b012d8e55dbf9d450f12bde2cf7d15ff546ae80b3f8f3b30e570d431815583d
   responders (3.2.1) sha256=c2772970cbda654c0e772d852e5a851e82cd8e96f5fa958650861ba75b8ffa84
