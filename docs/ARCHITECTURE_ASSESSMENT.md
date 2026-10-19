@@ -218,18 +218,27 @@ Draft pull request 39 emits two after-commit notifications. Names are `Recording
 | `trial_started.recording_studio_stripe` | `stripe.trial_started` | Local subscription is stored as `trialing`, or an existing row first becomes `trialing`. Once per subscription (`trial_started/<subscription id>`). |
 | `invoice_paid.recording_studio_stripe` | `stripe.invoice_paid` | A non-fee `invoice.paid` webhook creates a domain event. Once per invoice (`invoice_paid/<invoice id>`). |
 
-`DomainEvent#instrument_payload` for both:
+`DomainEvent#instrument_payload` at `07eac3281e9b61d224c2a2ef67d51e2dcd512f6e` for both events:
 
 - `schema_version` (`1`)
 - `id` — domain event UUID
 - `occurred_at`
 - `subscription_id` — local `recording_studio_stripe_subscriptions.id`
-- `customer_id` — local customer UUID
+- `customer_id` — local customer UUID. Conversions does not store this field.
 - `root_recording_id`
 
-`invoice_paid` merges `amount` (`amount_paid`, integer smallest currency unit), `currency`, `invoice_id`, and `first_payment`. There is no `trial_fee` key. `record_invoice_paid!` returns before creating a row when the stored invoice snapshot has `trial_fee`, so a trial-fee invoice never emits `invoice_paid`. `first_payment` is Stripe's boolean: true when that subscription has no earlier `invoice_paid` domain event. Conversions does not recompute it and does not test `trial_fee`.
+`invoice_paid` only, merged from the stored payload:
 
-The unreleased schema v1 payload is also gaining `billing_reason` and `subscription_status`. Stripe documents that a paid invoice on a canceled subscription is not a conversion signal. Conversions does not match `stripe.invoice_paid` when `subscription_status` is `"canceled"`. A missing `billing_reason` or `subscription_status` is unknown and keeps the current match on `amount`, `currency`, and `first_payment`. This does not wait for pull request 39 to merge. Hand-written fixtures use those two field names.
+- `invoice_id` (string)
+- `amount` (integer, `amount_paid` in the smallest currency unit)
+- `currency` (string)
+- `first_payment` (boolean)
+- `billing_reason` (string, `""` when the snapshot omits it)
+- `subscription_status` (string, the local subscription status)
+
+There is no `trial_fee` key. `record_invoice_paid!` returns before creating a row when the stored invoice snapshot has `trial_fee`, so a trial-fee invoice never emits `invoice_paid`. `first_payment` is Stripe's boolean: true when that subscription has no earlier `invoice_paid` domain event. Conversions does not recompute it and does not test `trial_fee`.
+
+`billing_reason` `""` is unknown. A missing `subscription_status` is unknown and keeps the current match. The default policy excludes `subscription_status` `"canceled"` through `config.excluded_subscription_statuses` (`%w[canceled]`). A host can change that list. `incomplete_expired` and `unpaid` are not in the default. This does not wait for pull request 39 to merge. Hand-written fixtures use these field names.
 
 These payloads have no `user_id`. Attribution is `root_recording_id` to the acquisition subject.
 
@@ -297,7 +306,7 @@ No change to the gem. Conversions may call `register_action` for `:"recording_st
 
 ### `RecordingStudio_stripe`
 
-Draft pull request 39 implements `trial_started` and `invoice_paid` from section 2, after commit, with a domain-event row whose UUID is the stable id. A trial-fee invoice does not create that row. Replay publishes an unpublished domain event again with the same `id`, or rebuilds it from the stored webhook snapshot. The unreleased `invoice_paid` payload adds `billing_reason` and `subscription_status`. M2 does not wait for that pull request to merge: a missing pair is unknown, and `subscription_status` `"canceled"` is not a conversion once the fields arrive. Later events (`subscription_activated`, `subscription_canceled`, `invoice_payment_failed`, `allowance_purchased`) are still absent. Do not add a dependency on Conversions. Do not put Meta field names in Stripe.
+Draft pull request 39 implements `trial_started` and `invoice_paid` from section 2, after commit, with a domain-event row whose UUID is the stable id. A trial-fee invoice does not create that row. Replay publishes an unpublished domain event again with the same `id`, or rebuilds it from the stored webhook snapshot. At `07eac3281e9b61d224c2a2ef67d51e2dcd512f6e`, `invoice_paid` already includes `invoice_id`, integer `amount`, boolean `first_payment`, `billing_reason` (`""` when missing), and `subscription_status`. M2 does not wait for that pull request to merge. A blank or missing status is unknown. The default exclusion is `canceled`, and a host can change `excluded_subscription_statuses`. Later events (`subscription_activated`, `subscription_canceled`, `invoice_payment_failed`, `allowance_purchased`) are still absent. Do not add a dependency on Conversions. Do not put Meta field names in Stripe.
 
 ### `RecordingStudio_users`
 
@@ -532,7 +541,7 @@ Recorded 2026-10-19. These close the questions above.
 2. **Users event.** Do not change `RecordingStudio_users`. Keep `"registration.completed.recording_studio_user"` (`RegistrationCompleted::EVENT`) as `user_id` and `method`. Conversions calls `confirmed?` on the user row when it handles the event, and stores `confirmed_at` when that is true. `created_at` is the wrong signal: OTP inserts the user row before the code is accepted. The host must run `bin/rails generate recording_studio_user:migrations`, which copies `add_devise_confirmable_to_users` (`confirmation_token`, `confirmed_at`, `confirmation_sent_at`, `unconfirmed_email`, unique index on `confirmation_token`). Devise `:confirmable` supplies `confirmed?`. When `RecordingStudioUser` is loaded, the user class name comes from `RecordingStudioUser.config.user_class_name`. Otherwise `configuration.user_class_name` defaults to `"User"`, and the install template sets that. Conversions raises only when that class is loaded, its table exists, and it does not implement `confirmed?`. It does not raise during `db:migrate` or the generator, before the class or table exists. The occurrence does not copy email.
 3. **Who writes the acquisition user.** The host calls Conversions after Onboarding has created the workspace. Registration still fires before that workspace exists, so Conversions does not guess a root during registration.
 4. **One acquisition user per root.** Decided, not assumed. Exactly one user per workspace root. The schema enforces it with a unique index on `root_recording_id`. The host records the row with `upsert` on that index. Replacing the user overwrites `subject_id` on that same row and does not rewrite the recording id. The previous user is discarded. That no-history trade-off is accepted: operators see the current acquisition user, not a log of replacements. First-occurrence matching for a rooted rule stays on the root, so the replacement does not earn a second StartTrial.
-5. **`invoice_paid` money.** `amount` is Stripe `amount_paid`. `first_payment` means the first paid invoice for that subscription. Stripe still has to put both on the event. Conversions does not recompute them. `billing_reason` and `subscription_status` are part of the same unreleased schema v1 payload. `subscription_status` `"canceled"` is not a conversion. Missing values stay unknown and do not change the match.
+5. **`invoice_paid` money.** `amount` is Stripe `amount_paid`, an integer. `first_payment` is a boolean: the first paid invoice for that subscription. `invoice_id`, `billing_reason` (string, `""` when missing), and `subscription_status` (string) are on the same `invoice_paid` payload at `07eac32`. Conversions does not recompute them. Excluding `subscription_status` `"canceled"` is the default policy (`excluded_subscription_statuses`). Missing or blank values stay unknown and do not change the match.
 6. **Trial fee and `trial_started`.** A trial-fee invoice is not a paid invoice and must not count as `first_payment`. `trial_started` fires once for a subscription that is created already trialing or that transitions into `trialing`.
 7. **Page views.** They will be built in `RecordingStudio_views`, following the Logs dummy `site_views` design (`resource_type`, `root_recording_id`, `recording_id`). That work is a separate pull request in the Views repo. This repo does not change Views.
 8. **Visitor id.** Reuse Root Switchable's anonymous device key. Do not create a visitor UUID table or a second cookie. Details are in the next section. Conversions reads the key through one interface. That interface's only source is Root Switchable.
