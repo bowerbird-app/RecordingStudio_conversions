@@ -1,5 +1,5 @@
 # frozen_string_literal: true
 
-module GemTemplate
+module RecordingStudioConversions
   VERSION = "0.2.3"
 end

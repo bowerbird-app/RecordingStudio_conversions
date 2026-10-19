@@ -2,29 +2,33 @@
 
 module RecordingStudioConversions
   class Configuration
-    Subscription = Data.define(:source_name, :canonical_name)
-
-    attr_reader :subscriptions, :rules
+    attr_accessor :api_key, :enable_feature_x, :timeout
+    attr_reader :hooks
 
     def initialize
-      @subscriptions = []
-      @rules = []
-      subscribe "registration.completed.recording_studio_user", as: "users.registered"
-      subscribe "trial_started.recording_studio_stripe", as: "stripe.trial_started"
-      subscribe "invoice_paid.recording_studio_stripe", as: "stripe.invoice_paid"
-      subscribe "recorded.recording_studio_views", as: "views.recorded"
+      @api_key = ENV.fetch("RECORDING_STUDIO_CONVERSIONS_API_KEY", nil)
+      @enable_feature_x = false
+      @timeout = 5
+      @hooks = RecordingStudio::Hooks.new
     end
 
-    def subscribe(source_name, as:)
-      subscriptions << Subscription.new(source_name.to_s, as.to_s)
+    def to_h
+      {
+        api_key: api_key,
+        enable_feature_x: enable_feature_x,
+        timeout: timeout,
+        hooks_registered: hooks.instance_variable_get(:@registry).transform_values(&:size)
+      }
     end
 
-    def conversion(key, &)
-      rules << Rule.build(key, &)
-    end
+    def merge!(hash)
+      return unless hash.respond_to?(:each)
 
-    def clear_rules!
-      @rules = []
+      hash.each do |k, v|
+        key = k.to_s
+        setter = "#{key}="
+        public_send(setter, v) if respond_to?(setter)
+      end
     end
   end
 end

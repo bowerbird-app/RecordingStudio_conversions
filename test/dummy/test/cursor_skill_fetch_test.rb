@@ -4,7 +4,7 @@ require "test_helper"
 
 class CursorSkillFetchTest < ActiveSupport::TestCase
   test "fetch-skills extras come from the plugin catalog without hardcoded extra URLs" do
-    root = GemTemplate::Engine.root
+    root = RecordingStudioConversions::Engine.root
     script = File.read(root.join(".cursor/fetch-skills.sh"))
     install = File.read(root.join(".cursor/install.sh"))
 
@@ -23,14 +23,14 @@ class CursorSkillFetchTest < ActiveSupport::TestCase
   end
 
   test "gem version stays 0.2.3 and gemspec still excludes .cursor" do
-    assert_equal "0.2.3", GemTemplate::VERSION
+    assert_equal "0.2.3", RecordingStudioConversions::VERSION
 
-    spec = Gem::Specification.load(GemTemplate::Engine.root.join("gem_template.gemspec").to_s)
+    spec = Gem::Specification.load(RecordingStudioConversions::Engine.root.join("recording_studio_conversions.gemspec").to_s)
     cursor_files = spec.files.select { |path| path == ".cursor" || path.split("/").include?(".cursor") }
 
     assert_empty cursor_files
 
-    tracked = `git -C #{GemTemplate::Engine.root} ls-files -- .cursor/rules`
+    tracked = `git -C #{RecordingStudioConversions::Engine.root} ls-files -- .cursor/rules`
     assert_equal "", tracked.strip
   end
 end
