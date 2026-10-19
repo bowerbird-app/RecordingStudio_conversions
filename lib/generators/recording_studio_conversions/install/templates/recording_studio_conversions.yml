@@ -1,0 +1,7 @@
+development:
+  user_class_name: User
+  raise_errors: false
+
+production:
+  user_class_name: User
+  raise_errors: false

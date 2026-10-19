@@ -291,12 +291,15 @@ class RenameVerificationTest < Minitest::Test
     skip if @gem_name == "gem_template"
 
     content = File.read(File.join(@root, "CHANGELOG.md"))
-    refute_includes content, "GemTemplate",
-                    "CHANGELOG.md still contains leftover GemTemplate identity"
-    refute_match %r{bowerbird-app/gem_template(?:["'/]|$)}, content,
-                 "CHANGELOG.md still points at bowerbird-app/gem_template"
+    current = content.split(/^## \[0\.2\.3\]/, 2).first
+    refute_includes current, "GemTemplate",
+                    "CHANGELOG.md Unreleased section still contains leftover GemTemplate identity"
+    refute_match %r{bowerbird-app/gem_template(?:["'/]|$)}, current,
+                 "CHANGELOG.md Unreleased section still points at bowerbird-app/gem_template"
     refute_includes content, "https://github.com/bowerbird-app/RecordingStudio_gem_template",
                     "CHANGELOG.md still points at the template homepage"
+    refute_includes content, "https://github.com/bowerbird-app/recording_studio_conversions",
+                    "CHANGELOG.md compare links must use the RecordingStudio_conversions repository"
   end
 
   def test_gemspec_homepage_has_no_leftover_template_identity_after_rename

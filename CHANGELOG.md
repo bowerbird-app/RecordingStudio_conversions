@@ -7,11 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Milestone 2 records provider-neutral conversion occurrences for Users registration, Stripe `trial_started` and `invoice_paid`, and Views page views. A repeat updates only suppressed rows. `invoice_paid` with `subscription_status` `canceled` does not match.
+
 ### Changed
 - Dummy and root GitHub tags: Recording Studio `v4.2.1` → `v4.2.2`.
 
 ### Upgrade notes
 - Point host and dummy Gemfiles at Recording Studio `v4.2.2`.
+- Hosts that do not load RecordingStudio_users use `config.user_class_name` (default `"User"`) and the four Devise confirmable columns: `confirmation_token`, `confirmed_at`, `confirmation_sent_at`, and `unconfirmed_email`.
 
 ## [0.2.3] - 2026-10-01
 
@@ -115,11 +119,11 @@ New addons copied from this template are born on Recording Studio 4.x.
 - Comprehensive README and documentation
 - Basic test suite with Minitest
 
-[Unreleased]: https://github.com/bowerbird-app/RecordingStudio_gem_template/compare/v0.2.3...HEAD
-[0.2.3]: https://github.com/bowerbird-app/RecordingStudio_gem_template/releases/tag/v0.2.3
-[0.2.2]: https://github.com/bowerbird-app/RecordingStudio_gem_template/releases/tag/v0.2.2
-[0.2.1]: https://github.com/bowerbird-app/RecordingStudio_gem_template/releases/tag/v0.2.1
-[0.2.0]: https://github.com/bowerbird-app/RecordingStudio_gem_template/releases/tag/v0.2.0
-[0.1.2]: https://github.com/bowerbird-app/RecordingStudio_gem_template/releases/tag/v0.1.2
-[0.1.1]: https://github.com/bowerbird-app/RecordingStudio_gem_template/releases/tag/v0.1.1
-[0.1.0]: https://github.com/bowerbird-app/RecordingStudio_gem_template/releases/tag/v0.1.0
+[Unreleased]: https://github.com/bowerbird-app/RecordingStudio_conversions/compare/v0.2.3...HEAD
+[0.2.3]: https://github.com/bowerbird-app/RecordingStudio_conversions/releases/tag/v0.2.3
+[0.2.2]: https://github.com/bowerbird-app/RecordingStudio_conversions/releases/tag/v0.2.2
+[0.2.1]: https://github.com/bowerbird-app/RecordingStudio_conversions/releases/tag/v0.2.1
+[0.2.0]: https://github.com/bowerbird-app/RecordingStudio_conversions/releases/tag/v0.2.0
+[0.1.2]: https://github.com/bowerbird-app/RecordingStudio_conversions/releases/tag/v0.1.2
+[0.1.1]: https://github.com/bowerbird-app/RecordingStudio_conversions/releases/tag/v0.1.1
+[0.1.0]: https://github.com/bowerbird-app/RecordingStudio_conversions/releases/tag/v0.1.0

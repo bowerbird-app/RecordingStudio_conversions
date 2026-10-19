@@ -1,6 +1,6 @@
-# GemTemplate
+# RecordingStudioConversions
 
-Internal template for building Rails engine addons on top of Recording Studio 4.x.
+Records provider-neutral conversion occurrences for Recording Studio.
 
 ## What's Included
 
@@ -150,6 +150,65 @@ All views use FlatPack ViewComponents. Available components include:
 Use the live FlatPack demo app at [flatpack.bowerbird.io](https://flatpack.bowerbird.io/) as the approved UI reference for current shared patterns. Its component table is the fastest way to discover available FlatPack components before introducing new custom UI.
 
 See the [FlatPack README](https://github.com/bowerbird-app/flatpack) for full documentation.
+
+## Conversions (milestone 2)
+
+This gem records provider-neutral conversion occurrences. It requires PostgreSQL. The occurrence table uses `jsonb` and partial unique indexes, which SQLite and MySQL do not provide.
+
+The host confirms users with Devise `:confirmable`. A host that does not load RecordingStudio_users needs these four columns on the user table: `confirmation_token`, `confirmed_at`, `confirmation_sent_at`, and `unconfirmed_email`. `bin/rails generate recording_studio_user:migrations` copies them from `add_devise_confirmable_to_users`. `confirmed?` alone is not enough: the `confirmed_at` column must exist. `config.user_class_name` defaults to `"User"`. That setting is used only when RecordingStudio_users is not loaded. When it is loaded, `RecordingStudioUser.config.user_class_name` wins, and a different value here warns at boot. A name that does not resolve warns at boot, and raises when `eager_load` is on:
+
+```ruby
+RecordingStudioConversions.configure do |config|
+  config.user_class_name = "User"
+  config.raise_errors = false
+end
+```
+
+`raise_errors` stays false in production. A matcher failure instruments `failed.recording_studio_conversions` and logs. It does not raise into the producer. Set `raise_errors` in test when a failure should surface.
+
+Rules are Ruby. Stripe `invoice_paid` has no `trial_fee` key. Match `first_payment` instead. Stripe `customer_id` is not stored. `config.excluded_subscription_statuses` defaults to `%w[canceled]`: a paid invoice on a canceled subscription is not a conversion. That list is policy, not a Stripe rule, and a host can replace it. `incomplete_expired` and `unpaid` are not excluded unless added. A missing or blank `subscription_status` or `billing_reason` is unknown and does not change the match. Source ids and user ids must be UUID strings. Any other value is unusable and the event is skipped:
+
+```ruby
+RecordingStudioConversions.configure do |config|
+  config.conversion :start_trial do
+    source "stripe.trial_started"
+    first_occurrence!
+  end
+
+  config.conversion :purchase do
+    source "stripe.invoice_paid"
+    condition :first_payment, equals: true
+  end
+
+  config.conversion :pricing_view do
+    source "views.recorded"
+    recording pricing_recording_id
+  end
+end
+```
+
+Subscriptions, and the payload key used as `source_event_id`:
+
+| Notification | Canonical name | Id key |
+|---|---|---|
+| `registration.completed.recording_studio_user` | `users.registered` | `user_id` |
+| `trial_started.recording_studio_stripe` | `stripe.trial_started` | `id` |
+| `invoice_paid.recording_studio_stripe` | `stripe.invoice_paid` | `id` |
+| `page_view.recorded.recording_studio_views` | `views.recorded` | `page_view_id` |
+
+After Onboarding creates the workspace, the host records the one acquisition user. A later call replaces that user and does not keep the previous one. A rooted first-occurrence rule still matches only once for that root. On `views.recorded`, `first_occurrence!` dedupes per root, not per viewer:
+
+```ruby
+RecordingStudioConversions.record_acquisition_user!(root_recording_id: root.id, user_id: user.id)
+```
+
+Suppressed rows (`unconfirmed_user`, `unknown_user`, `unresolved_acquisition_subject`, `already_recorded`) can be judged again after the host fixes the cause:
+
+```ruby
+RecordingStudioConversions.reevaluate!
+```
+
+A repeated notification for the same source id updates only a suppressed row. A matched row stays matched. Page-view `visitor_id` is taken from the payload, and the conversion is attributed to that view's `user_id`. Other events fall back to Root Switchable's device key. This gem does not set a cookie.
 
 ## Tech Stack
 

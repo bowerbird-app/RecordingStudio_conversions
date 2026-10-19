@@ -19,10 +19,7 @@ class RootSwitchDropdownTest < ActionDispatch::IntegrationTest
   end
 
   test "home page renders the root switch dropdown trigger" do
-    user = User.find_or_create_by!(email: "root-switch-test@example.com") do |record|
-      record.password = "Password123!"
-      record.password_confirmation = "Password123!"
-    end
+    user = confirmed_user("root-switch-test@example.com")
 
     sign_in user
 
@@ -37,10 +34,7 @@ class RootSwitchDropdownTest < ActionDispatch::IntegrationTest
   end
 
   test "root switch page renders with the host default layout" do
-    user = User.find_or_create_by!(email: "root-switch-page-test@example.com") do |record|
-      record.password = "Password123!"
-      record.password_confirmation = "Password123!"
-    end
+    user = confirmed_user("root-switch-page-test@example.com")
 
     sign_in user
 
@@ -55,10 +49,7 @@ class RootSwitchDropdownTest < ActionDispatch::IntegrationTest
   end
 
   test "switching returns to the current page when it is a valid internal route" do
-    user = User.find_or_create_by!(email: "root-switch-redirect-test@example.com") do |record|
-      record.password = "Password123!"
-      record.password_confirmation = "Password123!"
-    end
+    user = confirmed_user("root-switch-redirect-test@example.com")
 
     sign_in user
 
@@ -79,10 +70,7 @@ class RootSwitchDropdownTest < ActionDispatch::IntegrationTest
   end
 
   test "switching falls back to home when return_to is not a valid internal route" do
-    user = User.find_or_create_by!(email: "root-switch-fallback-test@example.com") do |record|
-      record.password = "Password123!"
-      record.password_confirmation = "Password123!"
-    end
+    user = confirmed_user("root-switch-fallback-test@example.com")
 
     sign_in user
 
@@ -100,5 +88,16 @@ class RootSwitchDropdownTest < ActionDispatch::IntegrationTest
     }
 
     assert_redirected_to "/"
+  end
+
+  private
+
+  def confirmed_user(email)
+    user = User.find_or_create_by!(email: email) do |record|
+      record.password = "Password123!"
+      record.password_confirmation = "Password123!"
+    end
+    user.update!(confirmed_at: Time.current) unless user.confirmed?
+    user
   end
 end

@@ -17,6 +17,7 @@ class DocsControllerTest < ActionDispatch::IntegrationTest
       user.password = TEST_PASSWORD
       user.password_confirmation = TEST_PASSWORD
     end
+    @user.update!(confirmed_at: Time.current) unless @user.confirmed?
 
     sign_in @user
   end
@@ -99,7 +100,7 @@ class DocsControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_select "h1", text: "Gem Views"
     assert_select "table", minimum: 1
-    refute_includes response.body, "app/views/gem_template/home/index.html.erb"
+    refute_includes response.body, "app/views/recording_studio_conversions/home/index.html.erb"
   end
 
   test "methods page renders successfully" do
