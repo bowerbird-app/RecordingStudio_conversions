@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_12_044328) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_19_000100) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -71,6 +71,46 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_12_044328) do
     t.index ["actor_type", "actor_id", "role"], name: "index_recording_studio_accesses_on_actor_and_role"
     t.index ["actor_type", "actor_id"], name: "index_recording_studio_accesses_on_actor"
     t.index ["depends_on_recording_id"], name: "index_recording_studio_accesses_on_depends_on_recording_id"
+  end
+
+  create_table "recording_studio_conversions_acquisition_subjects", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.uuid "root_recording_id", null: false
+    t.string "subject_type", null: false
+    t.uuid "subject_id", null: false
+    t.datetime "recorded_at", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["root_recording_id"], name: "idx_rs_conversions_one_acquisition_user_per_root", unique: true
+  end
+
+  create_table "recording_studio_conversions_occurrences", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.string "rule_key", null: false
+    t.string "source_event_name", null: false
+    t.string "source_event_id", null: false
+    t.string "source", null: false
+    t.integer "schema_version", default: 1, null: false
+    t.datetime "occurred_at", null: false
+    t.uuid "root_recording_id"
+    t.uuid "recording_id"
+    t.string "recordable_type"
+    t.uuid "recordable_id"
+    t.string "subject_type"
+    t.uuid "subject_id"
+    t.string "actor_type"
+    t.uuid "actor_id"
+    t.string "attribution_subject_type"
+    t.uuid "attribution_subject_id"
+    t.string "visitor_id"
+    t.jsonb "properties", default: {}, null: false
+    t.string "outcome", null: false
+    t.string "suppression_reason"
+    t.datetime "confirmed_at"
+    t.boolean "first_occurrence", default: false, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["root_recording_id"], name: "idx_rs_conversions_occurrences_root"
+    t.index ["rule_key", "attribution_subject_id"], name: "idx_rs_conversions_first_occurrence", unique: true, where: "(((outcome)::text = 'matched'::text) AND (first_occurrence = true) AND (attribution_subject_id IS NOT NULL))"
+    t.index ["rule_key", "source_event_id"], name: "idx_rs_conversions_occurrences_idempotency", unique: true
   end
 
   create_table "recording_studio_events", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -139,6 +179,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_12_044328) do
     t.datetime "reset_password_sent_at"
     t.string "reset_password_token"
     t.datetime "updated_at", null: false
+    t.datetime "confirmed_at"
     t.index ["email"], name: "index_users_on_email", unique: true
     t.index ["reset_password_token"], name: "index_users_on_reset_password_token", unique: true
   end
