@@ -7,14 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-19
+
 ### Added
+- Provider declarations: an adapter registry plus field, consent, channel, and age contracts. Destinations enable a registered adapter. A test fake adapter exercises the contract. No provider HTTP.
 - Milestone 2 records provider-neutral conversion occurrences for Users registration, Stripe `trial_started` and `invoice_paid`, and Views page views. A repeat updates only suppressed rows. `invoice_paid` with `subscription_status` `canceled` does not match.
 
 ### Changed
-- Dummy and root GitHub tags: Recording Studio `v4.2.1` → `v4.2.2`.
+- Root and dummy Gemfiles pin `recording_studio_stripe` at git tag `v0.13.0` with `require: false`. The hand-written Stripe fixture already matches `DomainEvent#instrument_payload` on that tag: the invoice value is integer `amount`, copied from Stripe `amount_paid`.
+
+### Fixed
+- Destination and configuration `inspect`, `to_s`, and `pretty_print` list destination option keys and redact the values. `to_h` omits option values. `deconstruct`, `deconstruct_keys`, and `Marshal.dump` carry the raw options, so never cache, log, or serialize a destination. `Destination.new(**destination.to_h, options:)` round-trips when the caller passes options back in.
+- Registration uses `Rails.autoloaders.main.unloadable_cpath?` when that method exists. The reload check runs only when reloading is on. Registering the same class for the same key does nothing. A different class still raises `already registered`. An anonymous class is rejected.
+- `conversion_event` maps a rule key to a provider event name. Those keys are checked once at boot by `RecordingStudioConversions.check!`, from `config.after_initialize`, so an adapter may be registered before its rule. The check raises when `config.raise_errors` is true or when `eager_load` is on. `raise_errors` defaults to `false` and can only escalate a warning to a raise. Otherwise the check warns with the same message. Inside `check!`, the source check always raises, while the rule-key check follows that gate. A missing rule silently drops that conversion, because the processor only iterates configured rules, so the boot warning is the only signal. `config.raise_errors` also re-raises event-processing errors at runtime, so setting it true for a strict boot check changes runtime error handling too. Field `events` / `required_for` names must match configured sources at registration. Alternatives must name a declared field. Subclasses copy parent declarations and may override consent, channels, max age, and browser module once. Overriding consent re-tags inherited fields with the new category. `within_age?` rejects a `Date`, and rejects `nil` or a `String` even when no max age is set. A timestamp more than five minutes in the future is not within age.
 
 ### Upgrade notes
-- Point host and dummy Gemfiles at Recording Studio `v4.2.2`.
+- Register providers in Ruby with `config.register_adapter` and `config.destination`. Shipping with none configured is valid. An adapter is a gem class, a file required from the initializer, or `autoload_lib_once`. The reload check runs only when reloading is on, so an `app/` adapter raises in development and passes in test and production.
+- Production rake tasks run with `rake_eager_load` false (Rails 6.1+), so `db:migrate` and `assets:precompile` only warn and only a server boot raises. Set `config.eager_load = ENV["CI"].present?` in the host test environment so CI catches a missing rule.
+- `recording_studio_views` `~> 0.3.0` is a runtime dependency and is GitHub-only, not a RubyGems release. Pin `recording_studio_views` at tag `v0.3.0` and `recording_studio_logs` at tag `v0.4.0` (Views depends on Logs).
+- Run `bin/rails generate recording_studio_conversions:migrations`, then `bin/rails db:migrate`.
+- When Stripe events are needed, pin `recording_studio_stripe` at git tag `v0.13.0` with `require: false`. This gem does not depend on it at runtime.
 - Hosts that do not load RecordingStudio_users use `config.user_class_name` (default `"User"`) and the four Devise confirmable columns: `confirmation_token`, `confirmed_at`, `confirmation_sent_at`, and `unconfirmed_email`.
 
 ## [0.2.3] - 2026-10-01
@@ -119,7 +131,8 @@ New addons copied from this template are born on Recording Studio 4.x.
 - Comprehensive README and documentation
 - Basic test suite with Minitest
 
-[Unreleased]: https://github.com/bowerbird-app/RecordingStudio_conversions/compare/v0.2.3...HEAD
+[Unreleased]: https://github.com/bowerbird-app/RecordingStudio_conversions/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/bowerbird-app/RecordingStudio_conversions/compare/v0.2.3...v0.3.0
 [0.2.3]: https://github.com/bowerbird-app/RecordingStudio_conversions/releases/tag/v0.2.3
 [0.2.2]: https://github.com/bowerbird-app/RecordingStudio_conversions/releases/tag/v0.2.2
 [0.2.1]: https://github.com/bowerbird-app/RecordingStudio_conversions/releases/tag/v0.2.1

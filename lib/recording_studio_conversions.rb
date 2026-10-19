@@ -3,6 +3,8 @@
 require "recording_studio"
 require "recording_studio_conversions/version"
 require "recording_studio_conversions/engine"
+require "recording_studio_conversions/adapters"
+require "recording_studio_conversions/provider_configuration"
 require "recording_studio_conversions/configuration"
 require "recording_studio_conversions/capabilities/example"
 require "recording_studio_conversions/rule"
@@ -21,6 +23,13 @@ module RecordingStudioConversions
 
     def configure
       yield(configuration) if block_given?
+    end
+
+    # Rule keys are checked here, not during register or configure, so a later
+    # initializer can still add the rule. The engine runs this once from
+    # config.after_initialize.
+    def check!
+      configuration.adapters.check!(subscriptions: configuration.subscriptions, rules: configuration.rules)
     end
 
     def install!

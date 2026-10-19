@@ -6,6 +6,9 @@ gem "recording_studio_conversions", path: "../.."
 # RecordingStudio engine
 gem "recording_studio", github: "bowerbird-app/RecordingStudio", tag: "v4.7.0"
 gem "recording_studio_views", github: "bowerbird-app/RecordingStudio_views", tag: "v0.3.0"
+# Contract pin for DomainEvent#instrument_payload. require: false so the Stripe
+# engine does not append its migrations to this dummy app.
+gem "recording_studio_stripe", github: "bowerbird-app/RecordingStudio_stripe", tag: "v0.13.0", require: false
 # Views 0.3 depends on Logs, which is not published to RubyGems.
 gem "recording_studio_logs", github: "bowerbird-app/RecordingStudio_logs", tag: "v0.4.0"
 gem "recording_studio_accessible", github: "bowerbird-app/RecordingStudio_accessible", tag: "v0.18.0"

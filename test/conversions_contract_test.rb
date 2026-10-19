@@ -177,6 +177,47 @@ class ConversionsContractTest < Minitest::Test
     refute rule.matches?(unpaid)
   end
 
+  def test_v0_13_invoice_payload_stores_amount_paid_under_amount
+    # RecordingStudio_stripe v0.13.0 DomainEvent#instrument_payload publishes
+    # integer amount copied from the invoice snapshot's amount_paid.
+    paid = envelope(
+      "stripe.invoice_paid",
+      amount: 2900,
+      amount_paid: 2900,
+      currency: "usd",
+      invoice_id: "in_first",
+      billing_reason: "",
+      subscription_status: "active",
+      first_payment: true
+    )
+
+    assert_equal 2900, paid.properties["amount"]
+    refute paid.properties.key?("amount_paid")
+    refute paid.properties.key?("customer_id")
+    refute paid.properties.key?("billing_reason")
+    assert_equal "active", paid.properties["subscription_status"]
+    assert_equal true, paid.properties["first_payment"]
+  end
+
+  def test_stripe_invoice_paid_shape_matches_the_fixture_without_booting_the_engine
+    refute defined?(RecordingStudioStripe)
+    spec = Gem.loaded_specs.fetch("recording_studio_stripe")
+    root = spec.full_gem_path
+    events = File.read(File.join(root, "lib/recording_studio_stripe/domain_events.rb"))
+    model = File.read(File.join(root, "app/models/recording_studio_stripe/domain_event.rb"))
+    payload = events[/def invoice_payload\(.*?^      end/m]
+    keys = payload.scan(/"([a-z_]+)" =>/).flatten
+    fixture = File.read(File.expand_path("dummy/test/integration/conversions_core_test.rb", __dir__))
+
+    assert_equal "0.13.0", spec.version.to_s
+    assert_equal %w[amount currency invoice_id billing_reason subscription_status first_payment], keys
+    assert_includes payload, '"amount" => snapshot["amount_paid"]'
+    assert_includes model, "extras[:amount] = extras[:amount].to_i unless extras[:amount].nil?"
+    assert_includes fixture, "amount: 2900"
+    refute_includes fixture, "amount_paid:"
+    refute defined?(RecordingStudioStripe::Engine)
+  end
+
   def test_blank_billing_reason_is_unknown_and_false_is_kept
     envelope = envelope("stripe.invoice_paid", first_payment: false, billing_reason: "", currency: "usd")
 

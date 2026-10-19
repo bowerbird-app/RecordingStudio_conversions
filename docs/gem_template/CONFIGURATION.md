@@ -122,15 +122,17 @@ Configuration is merged in the following order (later sources override earlier o
 ## Accessing Configuration at Runtime
 
 ```ruby
-GemTemplate.configuration.api_key
-# => "your-api-key"
+RecordingStudioConversions.configuration.user_class_name
+# => "User"
 
-GemTemplate.configuration.enable_feature_x
-# => true
+RecordingStudioConversions.configuration.raise_errors
+# => false
 
-GemTemplate.configuration.to_h
-# => { api_key: "...", enable_feature_x: true, timeout: 5 }
+RecordingStudioConversions.configuration.to_h
+# => { raise_errors: false, user_class_name: "User", hooks_registered: {}, adapters: [], destinations: [] }
 ```
+
+Destination option values, including an access token, are not part of `to_h`. `inspect` and `pretty_print` list those option keys and redact the values.
 
 You can access these values from anywhere in your application or from within the engine's controllers, models, and jobs.
 
