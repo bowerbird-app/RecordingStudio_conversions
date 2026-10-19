@@ -25,6 +25,7 @@ Inspection date: 2026-10-19. Each repository below was a `--depth 1` clone of it
 | `bowerbird-app/RecordingStudio_downloadable` | `615376a5ee04ab878b3ba14ab71bdf79fdafb719` | Append-only download log owned by that gem. Not registered with Logs. |
 | `bowerbird-app/flatpack` | `530eb3ec9bf9901a6832d663a92236920eaa6842` | UI kit. Stimulus controllers under `app/javascript/flat_pack/controllers/`. |
 | `bowerbird-app/RecordingStudio_onboarding` | `c8f66f9afc132ec3648c308d23d27a0baa6b1a1c` | Read because Users documents it as the consumer of the registration event. Not a conversion domain. |
+| `bowerbird-app/RecordingStudio_AB_tests` | `45d6b00c91d15b1be2365e3ab13954bef296eed3` | Experiment assignment, exposure, and conversion recording. Subscribes to registration. Writes its own visitor cookie. |
 
 Dummy-app pins inside Metrics (`README.md` companion tags) were not checked out. Assessment of Metrics, Admin, Accessible, Stripe, Pages, and Downloadable is against the default-branch SHAs above, which may differ from those tags. **Unverified** against the pinned tags.
 
@@ -126,7 +127,7 @@ Press kits registers an audience action, not a view counter: `RecordingStudioPre
 
 ### Stripe subscription and payment events
 
-Stripe persists billing state and does not emit ActiveSupport domain events. A search of `*.rb` under the Stripe repo found no `ActiveSupport::Notifications.instrument`.
+On the default branch (`5c818de`) Stripe persists billing state and does not emit ActiveSupport domain events. A search of `*.rb` on that commit found no `ActiveSupport::Notifications.instrument`. Draft `RecordingStudio_stripe` pull request 39 (`cursor/stripe-domain-events-6c4f`, `5287beb5487b208305bbd01eac479bb6e1bf70ac`) adds the after-commit events in section 2. The table below is the default-branch webhook behavior those events sit on.
 
 `ProcessWebhook::EVENT_HANDLERS` (`lib/recording_studio_stripe/process_webhook.rb`, `5c818de`):
 
@@ -185,57 +186,50 @@ Notifications (`d7ce744`) instruments `"notify.recording_studio_notifications"` 
 
 Proposed names follow the Publishable and Users shape: `<fact>.<gem_namespace>`, emitted with `ActiveRecord.after_all_transactions_commit`, payload free of provider ids and of raw email. Canonical names on the right are what Conversions would subscribe as. Schema version starts at 1.
 
-### Views — required, gem does not exist yet
+### Views — contract owned by Views
 
-Source name: `"recorded.recording_studio_views"`. Canonical: `"views.recorded"`.
+Source name: `"page_view.recorded.recording_studio_views"` (`RecordingStudioViews::PAGE_VIEW_RECORDED` on draft `RecordingStudio_views` pull request 1, `cursor/page-view-collection-3db9`, `5da39a0c815d239ccea9ee942cda76b180c561fb`). Canonical subscription name: `"views.recorded"`. Emitted from `PageView` `after_commit on: :create`, so a rolled-back insert does not notify. Schema version is `RecordingStudioViews::PAYLOAD_SCHEMA_VERSION` (`1`).
 
-The Views gem owns the decision that a view occurred (including once-per-visit if that is its rule). Payload:
+`PageViewPayload.build` publishes:
 
 | Field | Type | Notes |
 |---|---|---|
 | `schema_version` | integer | `1` |
-| `event_id` | uuid | Views log row id. Stable source id. |
-| `occurred_at` | time | |
-| `recording_id` | uuid | Existing recording id. Omitted when the view is not a recording. |
-| `recordable_type` | string | `"Page"`, press-kit recordable type, and so on. |
-| `recordable_id` | uuid | Copied from the recording. Never a new id for that recordable. |
-| `root_recording_id` | uuid | Nullable for pages outside a workspace. |
-| `path` | string | Request path only. No query string, so click ids stay in the Conversions collector. |
-| `classification` | string | Code-defined, for example `page`, `press_kit`, `recording`. |
-| `visitor_id` | string | Optional. Root Switchable device key when the request already has one. Views must not mint a second cookie. |
+| `occurred_at` | time, ISO8601 | |
+| `path` | string | Request path. Query string is not part of `path`. |
+| `root_recording_id` | uuid | Nullable outside a workspace. |
+| `user_id` | uuid | Nullable. Anonymous views omit it. |
+| `visitor_id` | string | Nullable. Host-supplied. Views does not mint a cookie. |
+| `referrer` | string | Nullable. |
+| `query_params` | object | UTM and click ids only (`QueryParams::KEYS`). |
 
-Conversions must not count a Turbo navigation as another canonical view. Matching uses `event_id` as `source_event_id`.
+Views is adding `page_view_id` (the page-view row id, stable source id) and `recording_id` (existing recording id, omitted when the view is not a recording) to that same schema. Conversions keys idempotency on `page_view_id`. A rule may filter on `recording_id`. Anonymous views, which have `visitor_id` and no `user_id`, are matched. They are not dropped for lack of an acquisition user. `visitor_id` on the payload wins over `Current.device_key`.
 
-### Stripe — required
+Conversions must not count a Turbo navigation as another canonical view. That decision stays in Views.
 
-Emit from `ProcessWebhook` after the database transaction commits, using the Stripe event id as `source_event_id`. A `:duplicate` webhook emits nothing. Suggested source names and canonical names:
+### Stripe — contract owned by Stripe
+
+Draft pull request 39 emits two after-commit notifications. Names are `RecordingStudioStripe::DomainEvents::TRIAL_STARTED` and `INVOICE_PAID`. `DomainEvent#publish!` runs from `after_commit on: :create` and again when an unpublished row is replayed. The payload `id` is the domain-event UUID. It stays the same across replay. That `id` is `source_event_id`. It is not the Stripe `evt_...` id.
 
 | Source instrumentation | Canonical | When |
 |---|---|---|
-| `trial_started.recording_studio_stripe` | `stripe.trial_started` | Local status transitions to `trialing`, or a new row is created already `trialing`. |
-| `subscription_activated.recording_studio_stripe` | `stripe.subscription_activated` | Status becomes `active` from anything else, including the `invoice.paid` past-due recovery. |
-| `subscription_canceled.recording_studio_stripe` | `stripe.subscription_canceled` | `customer.subscription.deleted` handler. |
-| `invoice_paid.recording_studio_stripe` | `stripe.invoice_paid` | Every non-duplicate `invoice.paid`, including invoices that do not change status. |
-| `invoice_payment_failed.recording_studio_stripe` | `stripe.invoice_payment_failed` | Existing failure handler, after commit. |
-| `allowance_purchased.recording_studio_stripe` | `stripe.allowance_purchased` | `ApplyAllowance` succeeds. Optional for the trial milestone. |
+| `trial_started.recording_studio_stripe` | `stripe.trial_started` | Local subscription is stored as `trialing`, or an existing row first becomes `trialing`. Once per subscription (`trial_started/<subscription id>`). |
+| `invoice_paid.recording_studio_stripe` | `stripe.invoice_paid` | A non-fee `invoice.paid` webhook creates a domain event. Once per invoice (`invoice_paid/<invoice id>`). |
 
-Shared payload:
+`DomainEvent#instrument_payload` for both:
 
-- `schema_version` (1)
-- `event_id` — Stripe event id (`evt_...`), which is already unique on `recording_studio_stripe_webhook_events.stripe_id`
-- `occurred_at` — from the Stripe event `created` timestamp
-- `root_recording_id`
-- `subscription_id` — local `recording_studio_stripe_subscriptions.id` when one exists
-- `stripe_subscription_id`
+- `schema_version` (`1`)
+- `id` — domain event UUID
+- `occurred_at`
+- `subscription_id` — local `recording_studio_stripe_subscriptions.id`
 - `customer_id` — local customer UUID
-- `status` — local status after the write
-- `previous_status`
-- `subscription_type`
-- `price_id` — local price UUID
+- `root_recording_id`
 
-`invoice_paid` and `invoice_payment_failed` also include `invoice_id` (Stripe invoice id), `amount` (integer minor units), `currency`, and `first_payment` (boolean computed by Stripe from local history of accepted invoices, not by Conversions). Email stays on the customer row.
+`invoice_paid` merges `amount` (`amount_paid`, integer smallest currency unit), `currency`, `invoice_id`, and `first_payment`. There is no `trial_fee` key. `record_invoice_paid!` returns before creating a row when the stored invoice snapshot has `trial_fee`, so a trial-fee invoice never emits `invoice_paid`. `first_payment` is Stripe's boolean: true when that subscription has no earlier `invoice_paid` domain event. Conversions does not recompute it and does not test `trial_fee`.
 
-`trial_started` does not include a user id. The customer table has no user. Identity is resolved later through the acquisition-subject association.
+These payloads have no `user_id`. Attribution is `root_recording_id` to the acquisition subject.
+
+`subscription_activated`, `subscription_canceled`, `invoice_payment_failed`, and `allowance_purchased` are not emitted by pull request 39. They stay later work.
 
 ### Users — mostly present
 
@@ -277,7 +271,7 @@ No change required. Keep `"recordings.event_created"` inside `record!` as histor
 
 ### `RecordingStudio_views`
 
-The repository has to stop being the gem template and become the page-view owner: collector, partitioned log registered through `RecordingStudioLogs.register`, and `"recorded.recording_studio_views"`. Conversions will not grow a parallel counter while that work is unfinished. This is the largest sibling proposal.
+The repository has to stop being the gem template and become the page-view owner: collector, partitioned log registered through `RecordingStudioLogs.register`, and `"page_view.recorded.recording_studio_views"`. Draft pull request 1 does that. It still needs to add `page_view_id` and `recording_id` to `PageViewPayload`. Conversions will not grow a parallel counter. This work stays in the Views repository.
 
 ### `RecordingStudio_logs`
 
@@ -297,13 +291,11 @@ No change to the gem. Conversions may call `register_action` for `:"recording_st
 
 ### `RecordingStudio_stripe`
 
-Required for the trial and payment milestones. After the webhook transaction commits, emit the events in section 2. Compare previous subscription status inside `ApplySubscription` so `trial_started` and `subscription_activated` are transitions. Emit `invoice_paid` for every newly stored `invoice.paid`, not only the `past_due` → `active` branch. Put `amount`, `currency`, and `first_payment` on that payload. Keep the unique `stripe_id` row as the durable source id. Do not add a dependency on Conversions. Do not put Meta field names in Stripe.
-
-A replay helper that lists webhook rows by `event_type` and `processed_at` would let Conversions recover a missed notification without a second outbox. The stored JSON is too thin for that today (`event_payload`), so either the notification is the contract and must not be lost after commit, or the stored payload grows enough to rebuild it. Prefer the notification plus the existing unique row, and keep amount on the notification payload computed at handling time.
+Draft pull request 39 implements `trial_started` and `invoice_paid` from section 2, after commit, with a domain-event row whose UUID is the stable id. A trial-fee invoice does not create that row. Replay publishes an unpublished domain event again with the same `id`, or rebuilds it from the stored webhook snapshot. No further Stripe change is required for M2. Later events (`subscription_activated`, `subscription_canceled`, `invoice_payment_failed`, `allowance_purchased`) are still absent. Do not add a dependency on Conversions. Do not put Meta field names in Stripe.
 
 ### `RecordingStudio_users`
 
-No required behavior change. Optional additive keys on `"registration.completed.recording_studio_user"`: `schema_version`, `occurred_at`, `confirmed`. Leave `user_id` and `method` in place. Do not add email. Do not add a visitor id inside Users; the registration controller does not know advertising cookies, and Users must not depend on Conversions. The host or a Conversions Rack middleware associates the cookie during that request.
+No required behavior change. Leave `user_id` and `method` in place. Do not add email. Do not add a visitor id inside Users. The host requirement is the existing generator `recording_studio_user:migrations`, whose `add_devise_confirmable_to_users` template adds the four confirmable columns. Conversions calls `confirmed?` and does not add those columns itself.
 
 ### `RecordingStudio_notifications`
 
@@ -311,7 +303,7 @@ No change.
 
 ### `RecordingStudio_pages`
 
-No change. Views identifies a page by `recordable_type` and `recording_id`.
+No change. Views identifies a page by `recording_id` on the page-view payload.
 
 ### `RecordingStudio_presskits`
 
@@ -386,13 +378,13 @@ Host policy result for a workspace. Stripe events carry `root_recording_id` and 
 |---|---|
 | `id` | UUID |
 | `root_recording_id` | UUID, not null. Existing workspace recording id. |
-| `subject_type` | `"User"` |
-| `subject_id` | `users.id` |
-| `recorded_at` | When the host wrote the row |
+| `subject_type` | `RecordingStudioUser.config.user_class_name` (dummy and the Users default are `"User"`) |
+| `subject_id` | That class's id |
+| `recorded_at` | When the host last wrote the row |
 
-Unique index on `root_recording_id`. Exactly one row per workspace root. The host writes it after Onboarding creates the workspace. Replacing the user updates `subject_id` on that row. The root recording id is not rewritten.
+Unique index on `root_recording_id`. Exactly one row per workspace root. The host writes it after Onboarding creates the workspace, through `upsert` on that unique index. Replacing the user updates `subject_type`, `subject_id`, and `recorded_at` on that row. The root recording id is not rewritten. The previous user is not kept. That is a deliberate no-history trade-off: the table answers "who is the acquisition user now", not "who was it when the trial started". A StartTrial that already matched for the root must not match again for the replacement user. First-occurrence for a rooted rule is unique on `(rule_key, root_recording_id)`, not on the current subject id.
 
-If the host has not written a row, a later workspace event stays unresolved. Another member is not substituted.
+If the host has not written a row, a later Stripe event stays unresolved. Another member is not substituted. An anonymous page view does not need this row.
 
 ### `recording_studio_conversions_occurrences`
 
@@ -403,7 +395,7 @@ Durable only after a rule matches, or when a match is suppressed for a reason op
 | `id` | UUID. Logical conversion occurrence id. Stable across retries. |
 | `rule_key` | Code-defined rule name |
 | `source_event_name` | Canonical name |
-| `source_event_id` | Views `event_id`, Stripe `evt_...`, or `users.id` for registration when the source has no separate event id |
+| `source_event_id` | Per source: Stripe domain-event `id`, Views `page_view_id`, registration `user_id` (`RegistrationCompleted` sends `user_id` and `method` only) |
 | `source` | Gem namespace |
 | `schema_version` | |
 | `occurred_at` | |
@@ -416,9 +408,16 @@ Durable only after a rule matches, or when a match is suppressed for a reason op
 | `outcome` | `matched` or `suppressed` |
 | `suppression_reason` | Nullable |
 
-Unique `(rule_key, source_event_id)`. First-occurrence rules add a partial unique index on `(rule_key, attribution_subject_type, attribution_subject_id)` where `outcome = 'matched'`. That constraint is the business idempotency. Provider dedup ids are not.
+One row per `(rule_key, source_event_id)`, including suppressed outcomes. A repeat of the same source id updates that row when a suppressed outcome can now match (`reevaluate!`, or the same notification again). It does not insert a second row. A matched row stays matched.
 
-Registration's source event has no id other than `user_id`. Use `user_id` as `source_event_id` for `"users.registered"` so a repeated notification cannot insert a second occurrence.
+First-occurrence rules add two partial unique indexes, both only where `outcome = 'matched' AND first_occurrence = true`:
+
+- `(rule_key, root_recording_id)` where `root_recording_id` is present. This is the StartTrial guard. Replacing the acquisition user does not free another match for that root.
+- `(rule_key, attribution_subject_id)` where `root_recording_id` is null and `attribution_subject_id` is present. Registration has no root, so the subject id is the guard there.
+
+`attribution_subject_type` is stored and is not part of either unique index. The subject id is already unique per user class in practice, and the root index does not need the type.
+
+Registration's source event has no id other than `user_id`. Use `user_id` as `source_event_id` for `"users.registered"`.
 
 ### `recording_studio_conversions_deliveries`
 
@@ -487,7 +486,7 @@ Google (`gclid`, `gbraid`, `wbraid`) and TikTok stay unimplemented until their o
 
 M1 is this document.
 
-**M2 — Event and conversion core.** Subscriptions, canonical envelope, code-defined rules, deterministic match, idempotency on `(rule_key, source_event_id)`, occurrence rows, and the one-row-per-root acquisition subject the host writes. Subscribe by name to Users, and to the Stripe and Views names even though those gems do not emit them yet. No provider calls.
+**M2 — Event and conversion core.** Subscriptions, canonical envelope, code-defined rules, deterministic match, one occurrence row per `(rule_key, source_event_id)` with suppressed-to-matched re-evaluation, and the one-row-per-root acquisition subject the host writes. Subscribe by name to Users, Stripe, and Views. Tests instrument the producer payloads (`RegistrationCompleted::EVENT` with `user_id` and `method`, `DomainEvent#instrument_payload`, `PageViewPayload` plus `page_view_id` and `recording_id`). They do not invent a parallel payload. No provider calls.
 
 **M3 — Provider declarations.** Adapter registry and field, consent, channel, and age contracts. A fake adapter in tests. No Meta HTTP yet.
 
@@ -501,7 +500,7 @@ M1 is this document.
 
 **M8 — Payment and deduplication.** Depends on Stripe `invoice_paid` with amount, currency, and `first_payment`. Browser receipts for dual-channel delivery. Receipts are server-issued and cannot assert a payment.
 
-**M9 — Views and Admin.** Depends on Views existing and emitting `"recorded.recording_studio_views"`. Read-only Admin screens over the registries and delivery rows. Until Views ships, Admin can still show registration and Stripe activity.
+**M9 — Views and Admin.** Depends on Views emitting `"page_view.recorded.recording_studio_views"` with `page_view_id` and `recording_id`. Read-only Admin screens over the registries and delivery rows. Until Views ships, Admin can still show registration and Stripe activity.
 
 **M10 — Second adapter test.** A mock adapter with a different required field. Proves Google or TikTok would be a new class. Not a production Google integration.
 
@@ -523,9 +522,9 @@ Sibling work that gates M7 and M9 is proposed in section 3. It is not part of th
 Recorded 2026-10-19. These close the questions above.
 
 1. **Attachable and Library.** Conversions stays clear of both gems. No dependency and no proposed change.
-2. **Users event.** Do not change `RecordingStudio_users`. Keep `"registration.completed.recording_studio_user"` as `user_id` and `method`. Conversions reads `confirmed_at` from the user row when it handles the event. `created_at` is the wrong signal: OTP inserts the user row before the code is accepted, so `created_at` would treat an unverified account as verified. `confirmed_at` is the timestamp Users already writes when password, OAuth, or OTP registration actually confirms the account (`confirm_password_account!`, Devise `confirm`). A nil `confirmed_at` means the user is not verified. The occurrence stores that timestamp. It does not copy email onto the event.
+2. **Users event.** Do not change `RecordingStudio_users`. Keep `"registration.completed.recording_studio_user"` (`RegistrationCompleted::EVENT`) as `user_id` and `method`. Conversions calls `confirmed?` on the user row when it handles the event, and stores `confirmed_at` when that is true. `created_at` is the wrong signal: OTP inserts the user row before the code is accepted. The host must run `bin/rails generate recording_studio_user:migrations`, which copies `add_devise_confirmable_to_users` (`confirmation_token`, `confirmed_at`, `confirmation_sent_at`, `unconfirmed_email`, unique index on `confirmation_token`). Devise `:confirmable` supplies `confirmed?`. Conversions raises at boot if that user class does not implement `confirmed?`. The user class name comes from `RecordingStudioUser.config.user_class_name`. There is no silent fallback to the `::User` constant. The occurrence does not copy email.
 3. **Who writes the acquisition user.** The host calls Conversions after Onboarding has created the workspace. Registration still fires before that workspace exists, so Conversions does not guess a root during registration.
-4. **One acquisition user per root.** Decided, not assumed. Exactly one user per workspace root. The schema enforces it with a unique index on `root_recording_id`. The host records the row. Replacing the user updates `subject_id` on that same row and does not rewrite the recording id.
+4. **One acquisition user per root.** Decided, not assumed. Exactly one user per workspace root. The schema enforces it with a unique index on `root_recording_id`. The host records the row with `upsert` on that index. Replacing the user overwrites `subject_id` on that same row and does not rewrite the recording id. The previous user is discarded. That no-history trade-off is accepted: operators see the current acquisition user, not a log of replacements. First-occurrence matching for a rooted rule stays on the root, so the replacement does not earn a second StartTrial.
 5. **`invoice_paid` money.** `amount` is Stripe `amount_paid`. `first_payment` means the first paid invoice for that subscription. Stripe still has to put both on the event. Conversions does not recompute them.
 6. **Trial fee and `trial_started`.** A trial-fee invoice is not a paid invoice and must not count as `first_payment`. `trial_started` fires once for a subscription that is created already trialing or that transitions into `trialing`.
 7. **Page views.** They will be built in `RecordingStudio_views`, following the Logs dummy `site_views` design (`resource_type`, `root_recording_id`, `recording_id`). That work is a separate pull request in the Views repo. This repo does not change Views.
@@ -553,6 +552,30 @@ The anonymous id is a device key, not a recording id.
 2. **Lifetime and rotation.** A one-year expiry replaces the id with a new UUID. Historical attribution stored under the old key will not follow the browser. Root Switchable does not document a renewal or a stable replacement.
 3. **Anonymous persistence.** With anonymous selections disabled, a logged-out visitor has no database row for the key. If the cookie is cleared, Conversions cannot recover that visitor from Root Switchable's tables.
 
+## RecordingStudio_AB_tests
+
+Commit `45d6b00c91d15b1be2365e3ab13954bef296eed3`. This gem already records experiment conversions. It is not the advertising conversion pipeline, and Conversions should not call it.
+
+What is worth copying:
+
+- **Registration subscription.** `EventSubscriptions::USER_REGISTERED_EVENT` is `"registration.completed.recording_studio_user"`. The built-in map uses `payload[:user_id]` and sets `event_id` to `"user:#{user_id}"`. Conversions uses the same notification and uses `user_id` itself as `source_event_id`.
+- **Payload registry.** `Registry#register_event` stores an `EventDefinition` (`notification:` and `map:`). That is how AB tests turns a notification into a subject. Conversions keeps rules in its own Ruby DSL instead of registering through AB tests. The two registries would otherwise disagree about what a conversion is.
+- **Failure isolation.** `EventSubscriptions#handle_notification!` and `ConversionRecorder.record!` rescue `StandardError`, instrument `conversion_failed.recording_studio_ab_tests`, log, and re-raise only when `configuration.raise_errors` is set. A producer request must not 500 because a subscriber failed. Conversions uses the same shape with `failed.recording_studio_conversions`.
+
+Where it diverges, on purpose:
+
+- AB tests stores experiment assignment, exposure, and goal rows. Conversions stores advertising occurrences and, later, provider deliveries. Sharing those tables would couple a product experiment to an ad network.
+- AB tests counts a conversion against an assignment window. Conversions matches a code-defined rule and then delivers it. The idempotency keys are different.
+
+### Open item for Marco — visitor cookie conflict
+
+Decision 8 says the only visitor id is Root Switchable's encrypted device-key cookie, and Conversions must not set a second cookie. AB tests does not follow that. `Identity::VISITOR_COOKIE` is `:_rsab_vid`, a signed cookie written by `Identity.write_visitor_cookie!` (`SecureRandom.uuid`, httponly, same_site lax, TTL from `visitor_cookie_ttl`). `CookieCodec::COOKIE_NAME` (`:_rsab_a`) is a second signed cookie for assignments. Neither reads `RecordingStudio::RootSwitchable::Current.device_key`.
+
+Conversions will not read `_rsab_vid` and will not write either cookie. An anonymous visitor can therefore have two ids: the device key and the AB tests visitor id. Experiment conversions and advertising conversions will not join on one id until Marco picks a source. Open: should AB tests stop minting `_rsab_vid` and use the device key, or do the two products keep separate visitors?
+
 ## Open questions for Marco
 
-No questions from the original list remain open. The three device-key gaps above are the remaining open items.
+The original ten questions are decided. Still open:
+
+1. The three device-key gaps above (consent, one-year rotation, no anonymous database row).
+2. The AB tests visitor cookie (`:_rsab_vid`) versus decision 8.
