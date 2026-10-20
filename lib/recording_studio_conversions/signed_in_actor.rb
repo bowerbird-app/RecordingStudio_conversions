@@ -27,17 +27,21 @@ module RecordingStudioConversions
     # engine request never sets. Pass the controller when the lambda accepts
     # it, and keep a zero-arity lambda working.
     def invoke(resolver, controller)
-      return resolver.call if resolver.arity.zero?
+      return resolver.call if call_arity(resolver).zero?
 
       resolver.call(controller)
     end
 
+    def call_arity(resolver)
+      resolver.respond_to?(:arity) ? resolver.arity : resolver.method(:call).arity
+    end
+
     def log_resolver_error(exception)
+      return if @resolver_error_logged
       return unless defined?(::Rails) && ::Rails.respond_to?(:logger) && ::Rails.logger
 
-      ::Rails.logger.error(
-        "[RecordingStudioConversions] actor resolver failed: #{exception.class}: #{exception.message}"
-      )
+      @resolver_error_logged = true
+      ::Rails.logger.error("[RecordingStudioConversions] actor resolver failed: #{exception.class}")
     end
 
     def current_actor

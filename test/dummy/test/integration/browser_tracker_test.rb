@@ -202,7 +202,24 @@ class BrowserTrackerTest < ActionDispatch::IntegrationTest
     assert_nil link.auth_method
   end
 
-  test "a zero-arity actor lambda still resolves and a resolver error is logged" do
+  test "a class-level actor resolver receives the controller" do
+    user = confirmed_user
+    previous = RecordingStudio.configuration.actor
+    resolver = Class.new do
+      def self.call(controller)
+        controller.signed_in_user
+      end
+    end
+    RecordingStudio.configuration.actor = resolver
+    controller = Object.new
+    controller.define_singleton_method(:signed_in_user) { user }
+
+    assert_equal user, RecordingStudioConversions::SignedInActor.resolve(controller)
+  ensure
+    RecordingStudio.configuration.actor = previous
+  end
+
+  test "a zero-arity actor lambda still resolves and a resolver error is logged once" do
     user = confirmed_user
     previous = RecordingStudio.configuration.actor
     RecordingStudio.configuration.actor = -> { user }
@@ -213,9 +230,11 @@ class BrowserTrackerTest < ActionDispatch::IntegrationTest
     logger.define_singleton_method(:error) { |message| messages << message }
     old_logger = Rails.logger
     Rails.logger = logger
+    RecordingStudioConversions::SignedInActor.instance_variable_set(:@resolver_error_logged, false)
     RecordingStudio.configuration.actor = ->(*) { raise "actor blew up" }
     assert_nil RecordingStudioConversions::SignedInActor.resolve(Object.new)
-    assert_match(/actor blew up/, messages.join)
+    assert_nil RecordingStudioConversions::SignedInActor.resolve(Object.new)
+    assert_equal ["[RecordingStudioConversions] actor resolver failed: RuntimeError"], messages
   ensure
     RecordingStudio.configuration.actor = previous
     Rails.logger = old_logger if old_logger
