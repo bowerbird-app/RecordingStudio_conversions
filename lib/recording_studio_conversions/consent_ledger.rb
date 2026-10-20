@@ -14,6 +14,13 @@ module RecordingStudioConversions
       row.granted && row.withdrawn_at.nil?
     end
 
+    # A signed-in withdrawal carries user_id. Clearing it before the delete keeps
+    # that row, so an earlier anonymous grant does not become the latest consent.
+    def detach_user!(user_id)
+      ConsentRecord.where(user_id: user_id).where.not(withdrawn_at: nil).update_all(user_id: nil)
+      ConsentRecord.where(user_id: user_id).delete_all
+    end
+
     def record!(visitor_id:, category:, granted:, user_id: nil, provenance: {})
       recorded_at = Time.current
       ConsentRecord.create!(

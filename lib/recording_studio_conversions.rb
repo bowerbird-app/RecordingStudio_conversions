@@ -20,6 +20,7 @@ require "recording_studio_conversions/attribution_store"
 require "recording_studio_conversions/identity_linker"
 require "recording_studio_conversions/attribution_policy"
 require "recording_studio_conversions/signed_in_actor"
+require "recording_studio_conversions/rate_limit_store"
 require "recording_studio_conversions/collector"
 require "recording_studio_conversions/public_config"
 require "recording_studio_conversions/envelope_properties"
@@ -62,7 +63,7 @@ module RecordingStudioConversions
       AcquisitionSubject.record!(root_recording_id: root_recording_id, user_id: user_id)
     end
 
-    def record_consent!(visitor_id:, category:, granted:, user_id: nil, provenance: {})
+    def record_consent!(visitor_id:, category:, granted:, user_id: nil, provenance: { "source" => "host" })
       ConsentLedger.record!(
         visitor_id: visitor_id, category: category, granted: granted, user_id: user_id, provenance: provenance
       )

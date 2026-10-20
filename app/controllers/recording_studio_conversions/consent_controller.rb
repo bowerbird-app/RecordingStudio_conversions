@@ -2,7 +2,7 @@
 
 module RecordingStudioConversions
   class ConsentController < ApplicationController
-    rate_limit to: 60, within: 1.minute, only: :create
+    rate_limit to: 60, within: 1.minute, only: :create, store: RateLimitStore
 
     def create
       visitor_id = VisitorId.from_request(request)
@@ -35,7 +35,7 @@ module RecordingStudioConversions
         visitor_id: visitor_id,
         category: params[:category].to_s,
         granted: granted_flag,
-        user_id: SignedInActor.resolve&.id,
+        user_id: SignedInActor.resolve(self)&.id,
         provenance: { "source" => "browser" }
       )
     end

@@ -10,8 +10,17 @@ RecordingStudio.configure do |config|
   # Shown in the shared default layout title fallback.
   config.app_name = "Addon Template" if config.respond_to?(:app_name=)
 
-  # Actor resolver for events when no actor is explicitly supplied
-  config.actor = -> { Current.actor }
+  # Engine collection and consent call this with the controller. A zero-arity
+  # lambda still works for other Recording Studio callers, but it cannot see
+  # the request. Current.actor is unset there: this engine does not run
+  # ApplicationController, and Recording Studio Users does not set it.
+  config.actor = lambda do |controller = nil|
+    actor = Current.actor
+    if actor.nil? && !controller.nil? && controller.respond_to?(:current_user)
+      actor = controller.current_user
+    end
+    actor
+  end
 
   # Emit ActiveSupport::Notifications events
   config.event_notifications_enabled = true

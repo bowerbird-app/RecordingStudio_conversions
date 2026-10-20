@@ -205,6 +205,44 @@ class AttributionIdentityTest < ActiveSupport::TestCase
     refute RecordingStudioConversions::ConsentRecord.exists?(user_id: first.id)
   end
 
+  test "deleting a user keeps the withdrawal so an earlier anonymous grant does not return" do
+    visitor_id = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+    owner = create_user(confirmed_at: Time.current)
+    other = create_user(confirmed_at: Time.current)
+    root = create_root
+    grant_consent
+    record_click("shared-click")
+    rule :registration, "users.registered"
+    publish_registration(owner)
+    publish_registration(other)
+    RecordingStudioConversions.record_acquisition_user!(root_recording_id: root.id, user_id: other.id)
+    RecordingStudioConversions.record_consent!(
+      visitor_id: visitor_id, category: "advertising", granted: false, user_id: owner.id,
+      provenance: { "source" => "host" }
+    )
+
+    RecordingStudioConversions.delete_attribution_for_user!(owner.id)
+
+    found = RecordingStudioConversions.attribution_for(root_recording_id: root.id)
+    assert_equal "resolved", found.status
+    assert_equal other.id, found.subject.subject_id
+    assert_empty found.observations
+    assert RecordingStudioConversions::ConsentRecord.exists?(
+      visitor_id: visitor_id, category: "advertising", granted: false, user_id: nil
+    )
+    refute RecordingStudioConversions::ConsentLedger.granted?(visitor_id: visitor_id, category: "advertising")
+  end
+
+  test "record_consent! defaults provenance to host" do
+    RecordingStudioConversions.record_consent!(
+      visitor_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      category: "advertising",
+      granted: true
+    )
+
+    assert_equal({ "source" => "host" }, RecordingStudioConversions::ConsentRecord.last.provenance)
+  end
+
   test "an unknown consent provenance source is rejected" do
     assert_raises(ArgumentError) do
       RecordingStudioConversions.record_consent!(

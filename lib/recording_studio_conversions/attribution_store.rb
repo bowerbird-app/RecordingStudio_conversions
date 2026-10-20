@@ -25,7 +25,7 @@ module RecordingStudioConversions
     def delete_for_user!(user_id)
       visitor_ids = IdentityLink.where(user_id: user_id).pluck(:visitor_id)
       IdentityLink.where(user_id: user_id).delete_all
-      ConsentRecord.where(user_id: user_id).delete_all
+      ConsentLedger.detach_user!(user_id)
       exclusive = visitor_ids.reject { |visitor_id| IdentityLink.exists?(visitor_id: visitor_id) }
       return if exclusive.empty?
 

@@ -14,9 +14,14 @@
     var granted = anyGranted(next.consent);
     var body = null;
     var modules = [];
-    if (granted && !next.collectedFor[urlKey]) {
-      body = { fields: readFields(config.fields || [], next.consent, input.search || "", input.cookie || "") };
-      next.collectedFor[urlKey] = true;
+    if (granted) {
+      var fields = readFields(
+        config.fields || [], next.consent, input.search || "", input.cookie || "", next.collectedFor, urlKey
+      );
+      if (fields.length || !next.collectedFor[urlMarker(urlKey)]) {
+        body = { fields: fields };
+        next.collectedFor[urlMarker(urlKey)] = true;
+      }
     }
     if (granted) modules = unload(next, input.modules || config.modules || []);
     return { state: next, body: body, modules: modules, consentRequest: consentRequest };
@@ -26,21 +31,32 @@
     var category = consent.category;
     if (!category) return null;
     state.consent[category] = consent.granted === true;
-    state.collectedFor = {};
     return { category: category, granted: consent.granted === true };
   }
 
-  function readFields(fields, consent, search, cookie) {
+  function readFields(fields, consent, search, cookie, collected, urlKey) {
     if (!anyGranted(consent)) return [];
     var params = new URLSearchParams(search.charAt(0) === "?" ? search.slice(1) : search);
     var cookies = parseCookies(cookie);
+    var seen = collected || {};
     return fields.reduce(function (found, field) {
       if (consent[field.consent_category] !== true) return found;
+      var key = fieldMarker(urlKey || "", field);
+      if (seen[key]) return found;
       var value = field.source === "cookie" ? cookies[field.name] : params.get(field.name);
       if (!value) return found;
+      seen[key] = true;
       found.push({ provider: field.provider, name: field.name, value: value });
       return found;
     }, []);
+  }
+
+  function urlMarker(url) {
+    return "url\n" + url;
+  }
+
+  function fieldMarker(url, field) {
+    return "field\n" + url + "\n" + field.provider + "\n" + field.name;
   }
 
   function unload(state, modules) {
@@ -109,7 +125,6 @@
     var config = parseConfig(element);
     var next = cloneState(stateFor(win, element));
     next.consent[detail.category] = detail.granted === true;
-    next.collectedFor = {};
     remember(win, element, next);
     postJson(win, config.consent_url, {
       category: detail.category,

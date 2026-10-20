@@ -23,6 +23,7 @@ class BrowserTrackerTest < ActionDispatch::IntegrationTest
     RecordingStudioConversions.configuration.collection_context = nil
     RecordingStudioConversions.configuration.collection_resolvers.clear
     RecordingStudio::RootSwitchable::Current.reset
+    RecordingStudioConversions::RateLimitStore.store = nil
   end
 
   test "the host layout opts in and a page without the helper does not" do
@@ -189,9 +190,9 @@ class BrowserTrackerTest < ActionDispatch::IntegrationTest
 
   test "an authenticated collection links the confirmed user without a marketing field" do
     user = confirmed_user
-    previous = RecordingStudio.configuration.actor
-    RecordingStudio.configuration.actor = -> { user }
     remember_device!(@visitor)
+    post user_session_path, params: { user: { email: user.email, password: "Password123" } }
+    assert_response :redirect
 
     post "/recording_studio_conversions/collection", params: { fields: [] }, as: :json
 
@@ -199,8 +200,47 @@ class BrowserTrackerTest < ActionDispatch::IntegrationTest
     assert_equal @visitor, link.visitor_id
     assert link.confirmed
     assert_nil link.auth_method
+  end
+
+  test "a zero-arity actor lambda still resolves and a resolver error is logged" do
+    user = confirmed_user
+    previous = RecordingStudio.configuration.actor
+    RecordingStudio.configuration.actor = -> { user }
+    assert_equal user, RecordingStudioConversions::SignedInActor.resolve(Object.new)
+
+    messages = []
+    logger = Logger.new(StringIO.new)
+    logger.define_singleton_method(:error) { |message| messages << message }
+    old_logger = Rails.logger
+    Rails.logger = logger
+    RecordingStudio.configuration.actor = ->(*) { raise "actor blew up" }
+    assert_nil RecordingStudioConversions::SignedInActor.resolve(Object.new)
+    assert_match(/actor blew up/, messages.join)
   ensure
     RecordingStudio.configuration.actor = previous
+    Rails.logger = old_logger if old_logger
+  end
+
+  test "collection and consent rate limits use the configured cache store" do
+    remember_device!(@visitor)
+    previous = RecordingStudioConversions::RateLimitStore.store
+    RecordingStudioConversions::RateLimitStore.store = ActiveSupport::Cache::MemoryStore.new
+
+    60.times do
+      post "/recording_studio_conversions/consent", params: { category: "advertising", granted: true }, as: :json
+      assert_response :success
+    end
+    post "/recording_studio_conversions/consent", params: { category: "advertising", granted: false }, as: :json
+    assert_response :too_many_requests
+
+    60.times do
+      post "/recording_studio_conversions/collection", params: { fields: [] }, as: :json
+      assert_response :success
+    end
+    post "/recording_studio_conversions/collection", params: { fields: [] }, as: :json
+    assert_response :too_many_requests
+  ensure
+    RecordingStudioConversions::RateLimitStore.store = previous
   end
 
   test "a blocked browser script still leaves the registration occurrence" do

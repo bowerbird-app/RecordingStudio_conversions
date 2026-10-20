@@ -2,7 +2,7 @@
 
 module RecordingStudioConversions
   class CollectionController < ApplicationController
-    rate_limit to: 60, within: 1.minute, only: :create
+    rate_limit to: 60, within: 1.minute, only: :create, store: RateLimitStore
 
     def create
       outcome = Collector.call(request: request, payload: json_payload, user: linked_user)
@@ -28,7 +28,7 @@ module RecordingStudioConversions
     end
 
     def linked_user
-      SignedInActor.resolve
+      SignedInActor.resolve(self)
     end
   end
 end

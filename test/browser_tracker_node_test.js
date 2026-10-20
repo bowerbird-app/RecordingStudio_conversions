@@ -3,7 +3,8 @@ const tracker = require(process.argv[2]);
 
 const fields = [
   { provider: "catalog", name: "click_id", source: "query_parameter", consent_category: "advertising" },
-  { provider: "catalog", name: "browser_id", source: "cookie", consent_category: "advertising" }
+  { provider: "catalog", name: "browser_id", source: "cookie", consent_category: "advertising" },
+  { provider: "catalog", name: "campaign", source: "query_parameter", consent_category: "analytics" }
 ];
 const config = { fields: fields, modules: [{ name: "fake-ads", src: "/modules/fake-ads" }] };
 
@@ -66,12 +67,25 @@ const secondCategory = tracker.plan(first.state, {
   config: config,
   consent: { category: "analytics", granted: true },
   url: "/pricing",
-  search: "?click_id=abc",
+  search: "?click_id=abc&campaign=spring",
   cookie: "browser_id=from-cookie"
 });
 assert.equal(secondCategory.state.consent.analytics, true);
-assert.equal(secondCategory.body.fields[0].value, "abc");
-assert.equal(secondCategory.state.collectedFor["/pricing"], true);
+assert.deepEqual(secondCategory.body.fields, [
+  { provider: "catalog", name: "campaign", value: "spring" }
+]);
+assert.equal(secondCategory.state.collectedFor["url\n/pricing"], true);
+assert.equal(secondCategory.state.collectedFor["field\n/pricing\ncatalog\nclick_id"], true);
+
+const grantedAgain = tracker.plan(secondCategory.state, {
+  type: "consent",
+  config: config,
+  consent: { category: "advertising", granted: true },
+  url: "/pricing",
+  search: "?click_id=abc&campaign=spring",
+  cookie: "browser_id=from-cookie"
+});
+assert.equal(grantedAgain.body, null);
 
 const withdrawn = tracker.plan(first.state, {
   type: "consent",
@@ -130,4 +144,56 @@ doc.listeners["turbo:load"][0]();
 assert.equal(fetches.length, 2);
 assert.equal(fetches[1].fields[0].value, "later");
 
-console.log("browser tracker script ok");
+const laterFetches = [];
+const laterDoc = {
+  readyState: "complete",
+  cookie: "browser_id=from-cookie",
+  listeners: {},
+  head: { appendChild() {} },
+  element: {
+    id: "recording-studio-conversions",
+    getAttribute() {
+      return JSON.stringify({
+        fields: fields,
+        modules: [],
+        consent: { advertising: true },
+        collect_url: "/recording_studio_conversions/collection",
+        consent_url: "/recording_studio_conversions/consent"
+      });
+    }
+  },
+  addEventListener(name, fn) {
+    this.listeners[name] = this.listeners[name] || [];
+    this.listeners[name].push(fn);
+  },
+  getElementById() { return this.element; },
+  querySelector() { return null; },
+  createElement() { return { dataset: {} }; }
+};
+const laterWin = {
+  location: { pathname: "/pricing", search: "?click_id=abc&campaign=spring" },
+  document: laterDoc,
+  fetch(_url, options) {
+    laterFetches.push(JSON.parse(options.body));
+    return Promise.resolve({ json() { return Promise.resolve({ modules: [] }); } });
+  }
+};
+tracker.boot(laterDoc, laterWin);
+assert.deepEqual(laterFetches[0].fields.map((field) => field.name), ["click_id", "browser_id"]);
+laterDoc.listeners["recording-studio-conversions:consent"][0]({
+  detail: { category: "analytics", granted: true }
+});
+
+setTimeout(() => {
+  try {
+    const collection = laterFetches.filter((body) => Array.isArray(body.fields));
+    assert.equal(collection.length, 2);
+    assert.deepEqual(collection[1].fields, [
+      { provider: "catalog", name: "campaign", value: "spring" }
+    ]);
+    console.log("browser tracker script ok");
+  } catch (error) {
+    console.error(error);
+    process.exit(1);
+  }
+}, 0);
