@@ -4,11 +4,11 @@ module RecordingStudioConversions
   # Turns a declared field into a stored string. Browser payloads are not a source
   # for request, session, resolver, customer, workspace, or event fields.
   module AttributionValues
+    # IP is personal on every adapter. It is never read and never stored.
     REQUEST_READERS = {
       user_agent: :user_agent.to_proc,
       referrer: :referrer.to_proc,
-      path: :path.to_proc,
-      ip_address: :remote_ip.to_proc
+      path: :path.to_proc
     }.freeze
     VALUE_LIMIT = 512
 

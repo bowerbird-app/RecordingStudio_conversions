@@ -51,7 +51,7 @@ class AttributionIdentityTest < ActiveSupport::TestCase
     publish_registration(other)
 
     assert_equal first.id, RecordingStudioConversions::IdentityLink.find_by!(user_id: user.id).id
-    assert_equal "password", first.method
+    assert_equal "password", first.auth_method
     assert first.confirmed
     assert_equal 2, RecordingStudioConversions::IdentityLink.where(visitor_id: first.visitor_id).count
   end
@@ -166,8 +166,7 @@ class AttributionIdentityTest < ActiveSupport::TestCase
       value: "foreign-click",
       source: "query_parameter",
       captured_at: Time.current,
-      consent_category: "advertising",
-      consent_granted: true
+      consent_category: "advertising"
     )
     rule :registration, "users.registered"
     publish_registration(user)
@@ -181,6 +180,41 @@ class AttributionIdentityTest < ActiveSupport::TestCase
 
     assert_equal 0, RecordingStudioConversions::IdentityLink.where(user_id: user.id).count
     assert_equal 0, RecordingStudioConversions::AttributionObservation.count
+  end
+
+  test "deleting one user on a shared device key leaves the other user's rows" do
+    visitor_id = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+    first = create_user(confirmed_at: Time.current)
+    second = create_user(confirmed_at: Time.current)
+    grant_consent
+    record_click("shared-click")
+    rule :registration, "users.registered"
+    publish_registration(first)
+    publish_registration(second)
+    RecordingStudioConversions.record_consent!(
+      visitor_id: visitor_id, category: "analytics", granted: true, user_id: first.id,
+      provenance: { "source" => "host" }
+    )
+
+    RecordingStudioConversions.delete_attribution_for_user!(first.id)
+
+    assert_equal 0, RecordingStudioConversions::IdentityLink.where(user_id: first.id).count
+    assert RecordingStudioConversions::IdentityLink.exists?(user_id: second.id)
+    assert RecordingStudioConversions::AttributionObservation.exists?(value: "shared-click")
+    assert RecordingStudioConversions::ConsentRecord.exists?(visitor_id: visitor_id, category: "advertising")
+    refute RecordingStudioConversions::ConsentRecord.exists?(user_id: first.id)
+  end
+
+  test "an unknown consent provenance source is rejected" do
+    assert_raises(ArgumentError) do
+      RecordingStudioConversions.record_consent!(
+        visitor_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        category: "advertising",
+        granted: true,
+        provenance: { "source" => "client" }
+      )
+    end
+    assert_equal 0, RecordingStudioConversions::ConsentRecord.count
   end
 
   private

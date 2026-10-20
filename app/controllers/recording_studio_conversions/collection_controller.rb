@@ -2,6 +2,8 @@
 
 module RecordingStudioConversions
   class CollectionController < ApplicationController
+    rate_limit to: 60, within: 1.minute, only: :create
+
     def create
       outcome = Collector.call(request: request, payload: json_payload, user: linked_user)
       if outcome["error"]
@@ -26,12 +28,7 @@ module RecordingStudioConversions
     end
 
     def linked_user
-      return Current.actor if defined?(Current) && Current.actor
-      return unless request.env["warden"]
-
-      request.env["warden"].user(:user)
-    rescue StandardError
-      nil
+      SignedInActor.resolve
     end
   end
 end

@@ -253,7 +253,7 @@ Attribution and identity fields declare source, required or optional, alternativ
 
 ## Attribution and browser collection (milestone 4)
 
-The host opts into the shared tracker in a layout. It is not added to every Recording Studio page. The layout also needs `csrf_meta_tags`.
+The host opts into the shared tracker in a layout. It is not added to every Recording Studio page. The layout also needs `csrf_meta_tags`. The helper emits one plain script. It is not a Stimulus controller: the host does not register a controller, and a new provider does not edit the layout. The script listens for `DOMContentLoaded` and `turbo:load`, which is the Turbo lifecycle this collector needs.
 
 ```erb
 <head>
@@ -261,19 +261,21 @@ The host opts into the shared tracker in a layout. It is not added to every Reco
 </head>
 ```
 
-Mount the engine so the tracker can post to `/recording_studio_conversions/collection` and `/recording_studio_conversions/consent`. With no destination configured, the tag renders and collects nothing.
+Mount the engine so the tracker can post to `/recording_studio_conversions/collection` and `/recording_studio_conversions/consent`. Those two POSTs use Rails `rate_limit` (60 requests per minute per IP) and keep `protect_from_forgery`. With no destination configured, the tag renders and collects nothing.
 
-The visitor id is Root Switchable's device key. This gem reads `Current.device_key`, or the existing encrypted cookie when an engine request has not run Root Switchable's `before_action`. It does not call `DeviceKey.fetch` and it does not set a cookie.
+The visitor id is Root Switchable's device key. This gem reads `Current.device_key`, or the existing encrypted cookie when an engine request has not run Root Switchable's `before_action`. The cookie is decrypted on a detached jar, so a key rotation does not write `Set-Cookie`. It does not call `DeviceKey.fetch` and it does not set a cookie.
 
-Collection stores one row per permitted field on `recording_studio_conversions_attribution_observations`. Rows are historical. A later click does not replace an earlier one. There is no column per advertising provider. Personal-sensitivity fields, including a declared email or IP when the adapter marks it personal, are not stored. Undeclared query parameters and cookies are ignored. A browser body cannot create a conversion occurrence, choose the visitor id, or supply a receipt. `BrowserReceipt.issue` and `dedup_id_for` still raise `NotImplementedError`.
+A signed-in collection request reads `RecordingStudio.configuration.actor` during that request. The default is `Current.actor`. Current attributes are reset at the start of a request, and this engine does not run the host `ApplicationController`, so a value set only there is not visible. Point `RecordingStudio.configuration.actor` at the signed-in user for engine routes. This gem does not read Warden.
 
-Consent is fail-closed. `RecordingStudioConversions.record_consent!` records a category for a visitor. The tracker posts the same answer. Collection and later resolution both read the latest row. Withdrawal keeps the observation and stops it from being selected. Provider module scripts are served only after that category is granted.
+Collection stores one row per permitted field on `recording_studio_conversions_attribution_observations`. Rows are historical. A later click does not replace an earlier one. There is no column per advertising provider. Personal-sensitivity fields are not stored. An IP address is personal on every adapter and is never stored, even when a field declares it as an identifier. Undeclared query parameters and cookies are ignored. A browser body cannot create a conversion occurrence, choose the visitor id, or supply a receipt. `BrowserReceipt.issue` and `dedup_id_for` still raise `NotImplementedError`.
 
-A confirmed registration links the device key to `users.id` on `recording_studio_conversions_identity_links`. A second confirmed user on the same key inserts another row. The first pair is left as it was. An unconfirmed registration waits until `reevaluate!` sees `confirmed_at`.
+Consent is fail-closed. `RecordingStudioConversions.record_consent!` records a category for a visitor and may set provenance `source` to `host`. The browser endpoint always records `source` `browser` and ignores a client-supplied source. Unknown sources are rejected. `granted` must be the literal `true` or `false`. The category must be one the configured adapters declare. Collection and later resolution both read the latest row. Withdrawal keeps the observation and stops it from being selected. Provider module scripts are served only after that category is granted. A module URL is `403` until then and `200` after, which is itself a consent signal. Responses send `Cache-Control: private` and `Vary: Cookie` so one visitor's script is not reused for another. Log filtering redacts parameter keys `value` and `visitor_id` only, not names such as `default_value`.
+
+A confirmed registration links the device key to `users.id` on `recording_studio_conversions_identity_links` (`auth_method` is `password`, `oauth`, `otp`, or null). A second confirmed user on the same key inserts another row. The first pair is left as it was. An unconfirmed registration waits until `reevaluate!` sees `confirmed_at`. A signed-in collection request writes that link even when advertising consent is absent. Observations still require an explicit grant.
 
 The default attribution resolver reads the one acquisition user the host recorded for that root. Set `config.attribution_subject_resolver` to replace that policy. A return value that is not that recorded user is `ambiguous_acquisition_subject`. The occurrence does not switch to another member. A missing row stays `unresolved_acquisition_subject`. `RecordingStudioConversions.attribution_for(root_recording_id:)` returns the subject and the unexpired observations linked through that user. Observations stamped with a different root are left out. A null root, captured before a workspace existed, is eligible.
 
-`delete_attribution_for_user!` removes that user's links, consent rows, and observations. `delete_attribution_for_root!` removes observations stamped with that root.
+`delete_attribution_for_user!` removes that user's links and consent rows. Observations and anonymous consent on a device key stay while another user is still linked to that key. `delete_attribution_for_root!` removes observations stamped with that root.
 
 ## Tech Stack
 

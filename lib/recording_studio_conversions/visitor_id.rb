@@ -38,11 +38,20 @@ module RecordingStudioConversions
       name = cookie_name
       return if name.nil? || request.nil?
 
-      value = request.cookie_jar.encrypted[name].presence
+      value = decrypt_cookie(request, name).presence
       remember(value)
       value
     rescue StandardError
       nil
+    end
+
+    # A detached jar. Reading request.cookie_jar rewrites a rotated key onto
+    # the response. This copy can rotate in memory and does not Set-Cookie.
+    def decrypt_cookie(request, name)
+      return unless request.respond_to?(:cookies)
+
+      jar = ActionDispatch::Cookies::CookieJar.build(request, request.cookies)
+      jar.encrypted[name]
     end
 
     def remember(value)

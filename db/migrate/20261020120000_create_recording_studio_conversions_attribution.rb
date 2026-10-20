@@ -9,7 +9,7 @@ class CreateRecordingStudioConversionsAttribution < ActiveRecord::Migration[8.1]
 
   private
 
-  def create_observations # rubocop:disable Metrics/AbcSize, Metrics/MethodLength
+  def create_observations # rubocop:disable Metrics/MethodLength
     create_table :recording_studio_conversions_attribution_observations, id: :uuid do |table|
       table.string :visitor_id, null: false
       table.uuid :root_recording_id
@@ -21,7 +21,6 @@ class CreateRecordingStudioConversionsAttribution < ActiveRecord::Migration[8.1]
       table.datetime :captured_at, null: false
       table.datetime :expires_at
       table.string :consent_category, null: false
-      table.boolean :consent_granted, null: false, default: false
       table.timestamps
     end
 
@@ -43,7 +42,7 @@ class CreateRecordingStudioConversionsAttribution < ActiveRecord::Migration[8.1]
     create_table :recording_studio_conversions_identity_links, id: :uuid do |table|
       table.string :visitor_id, null: false
       table.uuid :user_id, null: false
-      table.string :method
+      table.string :auth_method
       table.datetime :linked_at, null: false
       table.boolean :confirmed, null: false, default: false
       table.timestamps
@@ -73,5 +72,8 @@ class CreateRecordingStudioConversionsAttribution < ActiveRecord::Migration[8.1]
     add_index :recording_studio_conversions_consents,
               %i[visitor_id category recorded_at],
               name: "idx_rs_conv_consents_lookup"
+    add_index :recording_studio_conversions_consents,
+              :user_id,
+              name: "idx_rs_conv_consents_user"
   end
 end

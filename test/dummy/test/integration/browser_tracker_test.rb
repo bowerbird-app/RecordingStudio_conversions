@@ -74,6 +74,7 @@ class BrowserTrackerTest < ActionDispatch::IntegrationTest
     assert_includes response.parsed_body["ignored_claims"], "conversion"
     assert_equal 0, RecordingStudioConversions::Occurrence.count
     assert_equal page_views, page_view_count
+    refute_includes Array(response.headers["Set-Cookie"]).join, "recording_studio_root_switchable_device_key"
     names = RecordingStudioConversions::AttributionObservation.pluck(:field_name)
     assert_includes names, "click_id"
     assert_includes names, "browser_id"
@@ -87,7 +88,7 @@ class BrowserTrackerTest < ActionDispatch::IntegrationTest
     assert_raises(NotImplementedError) { CatalogAdsAdapter.new.dedup_id_for(nil) }
   end
 
-  test "a missing device key and a withdrawn consent record nothing" do
+  test "a missing device key records nothing and does not set a cookie" do
     post "/recording_studio_conversions/collection", params: {
       fields: [{ provider: "catalog", name: "click_id", value: "click-1" }]
     }, as: :json
@@ -96,24 +97,70 @@ class BrowserTrackerTest < ActionDispatch::IntegrationTest
     assert_equal "missing", response.parsed_body["visitor"]
     assert_equal 0, response.parsed_body["recorded"]
     refute_includes Array(response.headers["Set-Cookie"]).join, "recording_studio_root_switchable_device_key"
+  end
 
+  test "consent is granted before it can be withdrawn" do
     remember_device!(@visitor)
-    post "/recording_studio_conversions/consent", params: { category: "advertising", granted: false }, as: :json
+    post "/recording_studio_conversions/consent", params: {
+      category: "advertising", granted: true, provenance: { source: "host" }
+    }, as: :json
+    assert_response :success
+    assert_equal "browser", RecordingStudioConversions::ConsentRecord.last.provenance["source"]
+
     post "/recording_studio_conversions/collection", params: {
       fields: [{ provider: "catalog", name: "click_id", value: "click-1" }]
     }, as: :json
+    assert_equal 1, RecordingStudioConversions::AttributionObservation.where(field_name: "click_id").count
 
-    assert_equal 0, RecordingStudioConversions::AttributionObservation.count
+    post "/recording_studio_conversions/consent", params: { category: "advertising", granted: false }, as: :json
+    post "/recording_studio_conversions/collection", params: {
+      fields: [{ provider: "catalog", name: "click_id", value: "click-2" }]
+    }, as: :json
+
+    assert_equal ["click-1"], RecordingStudioConversions::AttributionObservation.where(field_name: "click_id").pluck(:value)
+  end
+
+  test "consent rejects an unknown category and a non-boolean grant" do
+    remember_device!(@visitor)
+    post "/recording_studio_conversions/consent", params: { category: "not-a-category", granted: true }, as: :json
+    assert_response :unprocessable_entity
+
+    post "/recording_studio_conversions/consent", params: { category: "advertising", granted: "yes" }, as: :json
+    assert_response :unprocessable_entity
+    assert_equal 0, RecordingStudioConversions::ConsentRecord.count
+  end
+
+  test "collection and consent keep forgery protection" do
+    filters = RecordingStudioConversions::ApplicationController._process_action_callbacks
+    assert(filters.any? { |callback| callback.kind == :before && callback.filter == :verify_authenticity_token })
+    assert RecordingStudioConversions::CollectionController.forgery_protection_strategy
+    assert RecordingStudioConversions::ConsentController.forgery_protection_strategy
+
+    app_config = Rails.application.config.action_controller
+    previous = app_config.allow_forgery_protection
+    app_config.allow_forgery_protection = true
+    protected_controllers.each { |controller| controller.allow_forgery_protection = true }
+    remember_device!(@visitor)
+    assert_equal 422, post_status("/recording_studio_conversions/consent", { category: "advertising", granted: true })
+    assert_equal 422, post_status("/recording_studio_conversions/collection", { fields: [] })
+    assert_equal 0, RecordingStudioConversions::ConsentRecord.count
+  ensure
+    app_config.allow_forgery_protection = previous if app_config
+    protected_controllers.each { |controller| controller.allow_forgery_protection = previous }
   end
 
   test "provider modules load only after consent and the collector reads server sources" do
     get "/recording_studio_conversions/modules/fake-ads"
     assert_response :forbidden
+    assert_equal "private", response.headers["Cache-Control"]
+    assert_equal "Cookie", response.headers["Vary"]
 
     remember_device!(@visitor)
     post "/recording_studio_conversions/consent", params: { category: "advertising", granted: true }, as: :json
     get "/recording_studio_conversions/modules/fake-ads"
     assert_response :success
+    assert_equal "private", response.headers["Cache-Control"]
+    assert_equal "Cookie", response.headers["Vary"]
     assert_includes response.body, "RecordingStudioConversionsProviderModules"
     refute_includes response.body, "fbq"
 
@@ -142,7 +189,8 @@ class BrowserTrackerTest < ActionDispatch::IntegrationTest
 
   test "an authenticated collection links the confirmed user without a marketing field" do
     user = confirmed_user
-    sign_in user
+    previous = RecordingStudio.configuration.actor
+    RecordingStudio.configuration.actor = -> { user }
     remember_device!(@visitor)
 
     post "/recording_studio_conversions/collection", params: { fields: [] }, as: :json
@@ -150,7 +198,9 @@ class BrowserTrackerTest < ActionDispatch::IntegrationTest
     link = RecordingStudioConversions::IdentityLink.find_by!(user_id: user.id)
     assert_equal @visitor, link.visitor_id
     assert link.confirmed
-    assert_nil link.method
+    assert_nil link.auth_method
+  ensure
+    RecordingStudio.configuration.actor = previous
   end
 
   test "a blocked browser script still leaves the registration occurrence" do
@@ -188,6 +238,22 @@ class BrowserTrackerTest < ActionDispatch::IntegrationTest
     jar = ActionDispatch::TestRequest.create(Rails.application.env_config).cookie_jar
     jar.encrypted[name] = value
     cookies[name.to_s] = jar[name.to_s]
+  end
+
+  def post_status(path, params)
+    post path, params: params, as: :json
+    response.status
+  rescue ActionController::InvalidAuthenticityToken
+    422
+  end
+
+  def protected_controllers
+    [
+      ActionController::Base,
+      RecordingStudioConversions::ApplicationController,
+      RecordingStudioConversions::CollectionController,
+      RecordingStudioConversions::ConsentController
+    ]
   end
 
   def page_view_count

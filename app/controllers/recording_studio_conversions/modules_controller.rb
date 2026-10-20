@@ -5,6 +5,7 @@ module RecordingStudioConversions
     # Script tags are not XHR. Forgery protection would reject the module
     # response. Consent and the adapter name are the gate.
     skip_forgery_protection only: :show
+    after_action :private_module_cache
 
     def show
       adapter = adapter_for(module_name)
@@ -18,6 +19,11 @@ module RecordingStudioConversions
     end
 
     private
+
+    def private_module_cache
+      response.headers["Cache-Control"] = "private"
+      response.headers["Vary"] = "Cookie"
+    end
 
     def module_name
       params[:name].to_s

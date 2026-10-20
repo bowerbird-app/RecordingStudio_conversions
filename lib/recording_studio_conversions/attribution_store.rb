@@ -24,10 +24,13 @@ module RecordingStudioConversions
 
     def delete_for_user!(user_id)
       visitor_ids = IdentityLink.where(user_id: user_id).pluck(:visitor_id)
-      AttributionObservation.where(visitor_id: visitor_ids).delete_all if visitor_ids.any?
-      ConsentRecord.where(user_id: user_id).delete_all
-      ConsentRecord.where(visitor_id: visitor_ids).delete_all if visitor_ids.any?
       IdentityLink.where(user_id: user_id).delete_all
+      ConsentRecord.where(user_id: user_id).delete_all
+      exclusive = visitor_ids.reject { |visitor_id| IdentityLink.exists?(visitor_id: visitor_id) }
+      return if exclusive.empty?
+
+      AttributionObservation.where(visitor_id: exclusive).delete_all
+      ConsentRecord.where(visitor_id: exclusive, user_id: nil).delete_all
     end
 
     def delete_for_root!(root_recording_id)
@@ -86,7 +89,7 @@ module RecordingStudioConversions
         provider: capture.entry.adapter.key.to_s, field_name: field.name.to_s,
         value: capture.value, source: field.source.to_s, captured_at: capture.captured_at,
         expires_at: expiry(field, capture.captured_at),
-        consent_category: field.consent_category.to_s, consent_granted: true
+        consent_category: field.consent_category.to_s
       }
     end
 

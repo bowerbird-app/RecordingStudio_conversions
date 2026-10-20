@@ -94,7 +94,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_20_120000) do
     t.datetime "captured_at", null: false
     t.datetime "expires_at"
     t.string "consent_category", null: false
-    t.boolean "consent_granted", default: false, null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.index ["expires_at"], name: "idx_rs_conv_obs_expires"
@@ -113,13 +112,14 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_20_120000) do
     t.jsonb "provenance", default: {}, null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.index ["user_id"], name: "idx_rs_conv_consents_user"
     t.index ["visitor_id", "category", "recorded_at"], name: "idx_rs_conv_consents_lookup"
   end
 
   create_table "recording_studio_conversions_identity_links", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.string "visitor_id", null: false
     t.uuid "user_id", null: false
-    t.string "method"
+    t.string "auth_method"
     t.datetime "linked_at", null: false
     t.boolean "confirmed", default: false, null: false
     t.datetime "created_at", null: false

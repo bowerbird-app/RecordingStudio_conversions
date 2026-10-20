@@ -8,7 +8,7 @@ module RecordingStudioConversions
     METHODS = %w[password oauth otp].freeze
 
     validates :visitor_id, :user_id, :linked_at, presence: true
-    validates :method, inclusion: { in: METHODS }, allow_nil: true
+    validates :auth_method, inclusion: { in: METHODS }, allow_nil: true
     validates :confirmed, inclusion: { in: [true, false] }
   end
 end

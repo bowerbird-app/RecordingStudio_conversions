@@ -6,6 +6,7 @@ module RecordingStudioConversions
     CLAIM_KEYS = %w[
       conversion occurrence_id receipt provider_dedup_id event_name amount trial payment visitor_id
     ].freeze
+    FIELD_KEYS = %w[provider name value].freeze
 
     module_function
 
@@ -28,12 +29,34 @@ module RecordingStudioConversions
     end
 
     def normalize(payload)
-      return if payload.nil?
-
-      hash = payload.respond_to?(:to_unsafe_h) ? payload.to_unsafe_h : payload
+      hash = permitted_hash(payload)
       return unless hash.is_a?(Hash)
 
       hash.deep_stringify_keys
+    end
+
+    def permitted_hash(payload)
+      return if payload.nil?
+      return permit_parameters(payload) if payload.respond_to?(:permit)
+      return slice_hash(payload) if payload.is_a?(Hash)
+
+      nil
+    end
+
+    def permit_parameters(payload)
+      payload.permit(*CLAIM_KEYS.map(&:to_sym), fields: FIELD_KEYS).to_h
+    end
+
+    def slice_hash(payload)
+      sliced = payload.stringify_keys.slice(*(CLAIM_KEYS + ["fields"]))
+      sliced["fields"] = Array(sliced["fields"]).filter_map { |item| slice_field(item) }
+      sliced
+    end
+
+    def slice_field(item)
+      return unless item.is_a?(Hash)
+
+      item.stringify_keys.slice(*FIELD_KEYS)
     end
 
     def collection_context(request, user)

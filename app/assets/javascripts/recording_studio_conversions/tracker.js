@@ -26,11 +26,8 @@
     var category = consent.category;
     if (!category) return null;
     state.consent[category] = consent.granted === true;
-    if (consent.granted !== true) {
-      state.collectedFor = {};
-      return { category: category, granted: false };
-    }
-    return { category: category, granted: true };
+    state.collectedFor = {};
+    return { category: category, granted: consent.granted === true };
   }
 
   function readFields(fields, consent, search, cookie) {
@@ -112,7 +109,7 @@
     var config = parseConfig(element);
     var next = cloneState(stateFor(win, element));
     next.consent[detail.category] = detail.granted === true;
-    if (detail.granted !== true) next.collectedFor = {};
+    next.collectedFor = {};
     remember(win, element, next);
     postJson(win, config.consent_url, {
       category: detail.category,

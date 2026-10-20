@@ -9,8 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Attribution collection. Permitted provider fields are stored as historical observations, with consent, expiry, and root isolation. Personal values are not stored. The host resolver must agree with the one acquisition user recorded for a workspace.
-- Browser tracker. Layouts opt in with `recording_studio_conversions_tags`. The shared script collects declared query parameters and cookies after consent, and loads a provider module by the adapter's `browser_module` name. It does not set a cookie or record page views.
-- Identity links from a confirmed registration, or a later signed-in collection request, to Root Switchable's device key.
+- Browser tracker. Layouts opt in with `recording_studio_conversions_tags`. The shared script is plain JavaScript, not a Stimulus controller, so the host does not register one. It collects declared query parameters and cookies after consent, recollects the current URL when another category is granted, and loads a provider module by the adapter's `browser_module` name. It does not set a cookie or record page views. Module responses are `403` until consent and `200` after, with `Cache-Control: private` and `Vary: Cookie`.
+- Identity links from a confirmed registration, or a later signed-in collection request, to Root Switchable's device key. The column is `auth_method`.
+
+### Changed
+- Collection and consent POSTs are rate limited to 60 requests per minute per IP. Consent accepts only a configured category and literal `true` or `false`. Browser provenance is always `browser`. `record_consent!` may write `host`. Any other source is rejected.
+- `delete_attribution_for_user!` deletes that user's links and consent rows. Observations on a device key shared with another user stay.
+- IP addresses are never stored. Log filtering uses anchored `value` and `visitor_id` keys.
 
 ## [0.3.0] - 2026-10-19
 

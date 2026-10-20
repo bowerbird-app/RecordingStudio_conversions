@@ -33,7 +33,10 @@ module RecordingStudioConversions
 
     def sanitize(provenance)
       source = provenance.to_h.stringify_keys["source"].to_s
-      source = "host" unless PROVENANCE_SOURCES.include?(source)
+      unless PROVENANCE_SOURCES.include?(source)
+        raise ArgumentError, "consent provenance source must be browser or host"
+      end
+
       { "source" => source }
     end
   end

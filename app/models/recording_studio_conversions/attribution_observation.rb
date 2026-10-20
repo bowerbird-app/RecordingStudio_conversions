@@ -8,6 +8,5 @@ module RecordingStudioConversions
     validates :visitor_id, :provider, :field_name, :value, :source, :consent_category, :captured_at, presence: true
     validates :value, length: { maximum: 512 }
     validates :source, inclusion: { in: Adapters::SOURCES.map(&:to_s) }
-    validates :consent_granted, inclusion: { in: [true, false] }
   end
 end

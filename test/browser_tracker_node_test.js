@@ -61,6 +61,18 @@ const turboNext = tracker.plan(first.state, {
 });
 assert.equal(turboNext.body.fields[0].value, "next");
 
+const secondCategory = tracker.plan(first.state, {
+  type: "consent",
+  config: config,
+  consent: { category: "analytics", granted: true },
+  url: "/pricing",
+  search: "?click_id=abc",
+  cookie: "browser_id=from-cookie"
+});
+assert.equal(secondCategory.state.consent.analytics, true);
+assert.equal(secondCategory.body.fields[0].value, "abc");
+assert.equal(secondCategory.state.collectedFor["/pricing"], true);
+
 const withdrawn = tracker.plan(first.state, {
   type: "consent",
   config: config,

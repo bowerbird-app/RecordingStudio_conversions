@@ -11,7 +11,7 @@ module RecordingStudioConversions
       end
 
       engine.initializer "recording_studio_conversions.filter_parameters" do |app|
-        app.config.filter_parameters += %i[value visitor_id]
+        app.config.filter_parameters += [/\Avalue\z/, /\Avisitor_id\z/]
       end
     end
   end
