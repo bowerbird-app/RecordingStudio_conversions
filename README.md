@@ -249,7 +249,31 @@ Attribution and identity fields declare source, required or optional, alternativ
 
 `within_age?` accepts a `Time`, `DateTime`, or `ActiveSupport::TimeWithZone`. A `Date` raises `ArgumentError`. `nil` and `String` are not within age, including when the adapter sets no max age. A timestamp more than 5 minutes ahead of now is not within age. That window is clock skew (`Adapters::Queries::FUTURE_CLOCK_SKEW`).
 
-`build_payload`, `deliver`, `normalize_error`, and `dedup_id_for` are instance methods and raise `NotImplementedError`. Construct an adapter with `initialize(destination:)` so delivery can read that destination's options. This milestone does not collect fields, deliver them, or call a provider.
+`build_payload`, `deliver`, `normalize_error`, and `dedup_id_for` are instance methods and raise `NotImplementedError`. Construct an adapter with `initialize(destination:)` so delivery can read that destination's options. This milestone does not deliver fields or call a provider.
+
+## Attribution and browser collection (milestone 4)
+
+The host opts into the shared tracker in a layout. It is not added to every Recording Studio page. The layout also needs `csrf_meta_tags`.
+
+```erb
+<head>
+  <%= recording_studio_conversions_tags %>
+</head>
+```
+
+Mount the engine so the tracker can post to `/recording_studio_conversions/collection` and `/recording_studio_conversions/consent`. With no destination configured, the tag renders and collects nothing.
+
+The visitor id is Root Switchable's device key. This gem reads `Current.device_key`, or the existing encrypted cookie when an engine request has not run Root Switchable's `before_action`. It does not call `DeviceKey.fetch` and it does not set a cookie.
+
+Collection stores one row per permitted field on `recording_studio_conversions_attribution_observations`. Rows are historical. A later click does not replace an earlier one. There is no column per advertising provider. Personal-sensitivity fields, including a declared email or IP when the adapter marks it personal, are not stored. Undeclared query parameters and cookies are ignored. A browser body cannot create a conversion occurrence, choose the visitor id, or supply a receipt. `BrowserReceipt.issue` and `dedup_id_for` still raise `NotImplementedError`.
+
+Consent is fail-closed. `RecordingStudioConversions.record_consent!` records a category for a visitor. The tracker posts the same answer. Collection and later resolution both read the latest row. Withdrawal keeps the observation and stops it from being selected. Provider module scripts are served only after that category is granted.
+
+A confirmed registration links the device key to `users.id` on `recording_studio_conversions_identity_links`. A second confirmed user on the same key inserts another row. The first pair is left as it was. An unconfirmed registration waits until `reevaluate!` sees `confirmed_at`.
+
+The default attribution resolver reads the one acquisition user the host recorded for that root. Set `config.attribution_subject_resolver` to replace that policy. A return value that is not that recorded user is `ambiguous_acquisition_subject`. The occurrence does not switch to another member. A missing row stays `unresolved_acquisition_subject`. `RecordingStudioConversions.attribution_for(root_recording_id:)` returns the subject and the unexpired observations linked through that user. Observations stamped with a different root are left out. A null root, captured before a workspace existed, is eligible.
+
+`delete_attribution_for_user!` removes that user's links, consent rows, and observations. `delete_attribution_for_root!` removes observations stamped with that root.
 
 ## Tech Stack
 

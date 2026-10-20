@@ -2,6 +2,8 @@
 
 module RecordingStudioConversions
   class Engine < ::Rails::Engine
+    extend EngineSetup
+
     isolate_namespace RecordingStudioConversions
 
     class << self

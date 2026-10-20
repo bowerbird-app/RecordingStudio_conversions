@@ -60,16 +60,20 @@ module RecordingStudioConversions
       envelope = Envelope.from(@subscription, @payload)
       return [] unless envelope.usable?
 
-      RecordingStudioConversions.configuration.rules.filter_map do |rule|
+      rows = RecordingStudioConversions.configuration.rules.filter_map do |rule|
         record(rule, envelope) if rule.matches?(envelope)
       end
+      IdentityLinker.from_envelope(envelope)
+      rows
     end
 
     def revise_stored(rule, occurrence)
       envelope = Envelope.from_record(occurrence)
       subject = subject_for(envelope)
       outcome, reason = decision(rule, envelope, subject)
-      writer.save(OccurrenceWriter::Change.new(rule, envelope, subject, outcome, reason))
+      saved = writer.save(OccurrenceWriter::Change.new(rule, envelope, stored_subject(subject), outcome, reason))
+      IdentityLinker.from_envelope(envelope)
+      saved
     end
 
     private
@@ -77,14 +81,18 @@ module RecordingStudioConversions
     def record(rule, envelope)
       subject = subject_for(envelope)
       outcome, reason = decision(rule, envelope, subject)
-      writer.save(OccurrenceWriter::Change.new(rule, envelope, subject, outcome, reason))
+      writer.save(OccurrenceWriter::Change.new(rule, envelope, stored_subject(subject), outcome, reason))
     end
 
     def subject_for(envelope)
       return if envelope.name == "views.recorded"
       return unless envelope.root_recording_id
 
-      AcquisitionSubject.for_root(envelope.root_recording_id)
+      AttributionPolicy.resolve(envelope)
+    end
+
+    def stored_subject(subject)
+      subject.is_a?(AcquisitionSubject) ? subject : nil
     end
 
     def decision(rule, envelope, subject)
@@ -96,9 +104,16 @@ module RecordingStudioConversions
 
     def unresolved(envelope, subject)
       return if envelope.name == "views.recorded"
-      return unless envelope.root_recording_id && subject.nil?
+      return unless envelope.root_recording_id
+      return notice(envelope, "ambiguous_acquisition_subject") if subject == AttributionPolicy::AMBIGUOUS
+      return notice(envelope, "unresolved_acquisition_subject") if subject.nil?
 
-      %w[suppressed unresolved_acquisition_subject]
+      nil
+    end
+
+    def notice(envelope, status)
+      AttributionPolicy.diagnose(envelope, status)
+      ["suppressed", status]
     end
 
     def unconfirmed(envelope, subject)

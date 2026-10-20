@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Attribution collection. Permitted provider fields are stored as historical observations, with consent, expiry, and root isolation. Personal values are not stored. The host resolver must agree with the one acquisition user recorded for a workspace.
+- Browser tracker. Layouts opt in with `recording_studio_conversions_tags`. The shared script collects declared query parameters and cookies after consent, and loads a provider module by the adapter's `browser_module` name. It does not set a cookie or record page views.
+- Identity links from a confirmed registration, or a later signed-in collection request, to Root Switchable's device key.
+
 ## [0.3.0] - 2026-10-19
 
 ### Added

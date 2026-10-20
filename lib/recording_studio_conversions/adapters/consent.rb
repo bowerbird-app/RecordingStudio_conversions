@@ -2,8 +2,8 @@
 
 module RecordingStudioConversions
   module Adapters
-    # What a provider requires before collection or delivery. This does not
-    # store a visitor's answer. That check belongs to a later milestone.
+    # What a provider requires before collection or delivery. A visitor's answer
+    # is stored on recording_studio_conversions_consents, not here.
     Consent = Data.define(:category, :collection, :delivery) do
       def self.build(category:, collection:, delivery:)
         raise ArgumentError, "consent category is required" if category.blank?
