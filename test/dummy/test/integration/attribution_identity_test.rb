@@ -349,22 +349,21 @@ class AttributionIdentityTest < ActiveSupport::TestCase
   end
 
   test "a withdrawal wins when consent timestamps tie" do
-    visitor_id = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
     at = Time.current.change(usec: 0)
     provenance = { "source" => "host" }
-    # Same recorded_at and created_at. The grant is inserted first, and that is
-    # the row a timestamp-only order returns. granted asc is what selects the withdrawal.
-    RecordingStudioConversions::ConsentRecord.create!(
-      visitor_id: visitor_id, category: "advertising", granted: true,
-      recorded_at: at, withdrawn_at: nil, provenance: provenance, created_at: at, updated_at: at
-    )
-    RecordingStudioConversions::ConsentRecord.create!(
-      visitor_id: visitor_id, category: "advertising", granted: false,
-      recorded_at: at, withdrawn_at: at, provenance: provenance, created_at: at, updated_at: at
-    )
+    # Identical recorded_at and created_at. Without granted: :asc, which tied
+    # row is chosen is unspecified, so both insert orders are covered.
+    grant_first = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+    grant_last = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
+    insert_tied_consent(grant_first, granted: true, at: at, provenance: provenance)
+    insert_tied_consent(grant_first, granted: false, at: at, provenance: provenance)
+    insert_tied_consent(grant_last, granted: false, at: at, provenance: provenance)
+    insert_tied_consent(grant_last, granted: true, at: at, provenance: provenance)
 
-    assert RecordingStudioConversions::ConsentLedger.withdrawn?(visitor_id: visitor_id, category: "advertising")
-    refute RecordingStudioConversions::ConsentLedger.granted?(visitor_id: visitor_id, category: "advertising")
+    [grant_first, grant_last].each do |visitor_id|
+      assert RecordingStudioConversions::ConsentLedger.withdrawn?(visitor_id: visitor_id, category: "advertising")
+      refute RecordingStudioConversions::ConsentLedger.granted?(visitor_id: visitor_id, category: "advertising")
+    end
   end
 
   test "an unknown consent provenance source is rejected" do
@@ -380,6 +379,14 @@ class AttributionIdentityTest < ActiveSupport::TestCase
   end
 
   private
+
+  def insert_tied_consent(visitor_id, granted:, at:, provenance:)
+    RecordingStudioConversions::ConsentRecord.create!(
+      visitor_id: visitor_id, category: "advertising", granted: granted,
+      recorded_at: at, withdrawn_at: granted ? nil : at, provenance: provenance,
+      created_at: at, updated_at: at
+    )
+  end
 
   def withdraw_advertising
     RecordingStudioConversions.record_consent!(
