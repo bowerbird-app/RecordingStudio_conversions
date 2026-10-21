@@ -352,13 +352,15 @@ class AttributionIdentityTest < ActiveSupport::TestCase
     visitor_id = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
     at = Time.current.change(usec: 0)
     provenance = { "source" => "host" }
-    RecordingStudioConversions::ConsentRecord.create!(
-      visitor_id: visitor_id, category: "advertising", granted: false,
-      recorded_at: at, withdrawn_at: at, provenance: provenance, created_at: at, updated_at: at
-    )
+    # Same recorded_at and created_at. The grant is inserted first, and that is
+    # the row a timestamp-only order returns. granted asc is what selects the withdrawal.
     RecordingStudioConversions::ConsentRecord.create!(
       visitor_id: visitor_id, category: "advertising", granted: true,
       recorded_at: at, withdrawn_at: nil, provenance: provenance, created_at: at, updated_at: at
+    )
+    RecordingStudioConversions::ConsentRecord.create!(
+      visitor_id: visitor_id, category: "advertising", granted: false,
+      recorded_at: at, withdrawn_at: at, provenance: provenance, created_at: at, updated_at: at
     )
 
     assert RecordingStudioConversions::ConsentLedger.withdrawn?(visitor_id: visitor_id, category: "advertising")

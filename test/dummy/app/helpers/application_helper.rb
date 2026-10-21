@@ -33,12 +33,13 @@ module ApplicationHelper
   def delete_attribution_button(link)
     return if @visitor_id.blank? || link.visitor_id != @visitor_id
 
-    render FlatPack::Button::Component.new(
-      text: "Delete attribution",
-      href: attribution_user_path(link.user_id),
-      method: :delete,
-      style: :danger,
-      size: :sm
-    )
+    form_with url: attribution_user_path(link.user_id), method: :delete do
+      render FlatPack::Button::Component.new(
+        text: "Delete attribution",
+        type: "submit",
+        style: :danger,
+        size: :sm
+      )
+    end
   end
 end

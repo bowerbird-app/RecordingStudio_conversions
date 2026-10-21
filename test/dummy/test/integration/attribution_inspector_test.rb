@@ -17,6 +17,23 @@ class AttributionInspectorTest < ActionDispatch::IntegrationTest
     RecordingStudioConversions.configuration.clear_adapters!
   end
 
+  test "grant revoke acquisition and delete submit through forms" do
+    user = confirmed_user
+    sign_in user
+    Workspace.create!(name: "Inspector buttons #{SecureRandom.hex(4)}")
+    get attribution_inspector_path
+
+    assert_response :success
+    assert_select %(form[method="post"][action="/attribution/consent"] input[name="granted"][value="true"])
+    assert_select %(form[method="post"][action="/attribution/consent"] input[name="category"][value="advertising"])
+    assert_select %(form[method="post"][action="/attribution/consent"] button[type="submit"]), text: "Grant advertising"
+    assert_select %(form[method="post"][action="/attribution/consent"] input[name="granted"][value="false"])
+    assert_select %(form[method="post"][action="/attribution/consent"] button[type="submit"]), text: "Revoke advertising"
+    assert_select %(form[method="post"][action="/attribution/acquisition"] button[type="submit"]), text: "Use me as the acquisition user"
+    assert_select %(form[method="post"][action^="/attribution/users/"] input[name="_method"][value="delete"])
+    assert_select %(form[method="post"][action^="/attribution/users/"] button[type="submit"]), text: "Delete attribution"
+  end
+
   test "the inspector requires a signed-in user and is linked from the nav" do
     get attribution_inspector_path
 

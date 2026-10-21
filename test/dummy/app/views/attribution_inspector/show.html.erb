@@ -27,20 +27,26 @@
     <% else %>
       <div class="flex flex-wrap gap-2">
         <% @categories.each do |category| %>
-          <%= render FlatPack::Button::Component.new(
-            text: "Grant #{category}",
-            href: attribution_consent_path(category: category, granted: true),
-            method: :post,
-            style: :primary,
-            size: :sm
-          ) %>
-          <%= render FlatPack::Button::Component.new(
-            text: "Revoke #{category}",
-            href: attribution_consent_path(category: category, granted: false),
-            method: :post,
-            style: :danger,
-            size: :sm
-          ) %>
+          <%= form_with url: attribution_consent_path, method: :post do %>
+            <%= hidden_field_tag :category, category %>
+            <%= hidden_field_tag :granted, "true" %>
+            <%= render FlatPack::Button::Component.new(
+              text: "Grant #{category}",
+              type: "submit",
+              style: :primary,
+              size: :sm
+            ) %>
+          <% end %>
+          <%= form_with url: attribution_consent_path, method: :post do %>
+            <%= hidden_field_tag :category, category %>
+            <%= hidden_field_tag :granted, "false" %>
+            <%= render FlatPack::Button::Component.new(
+              text: "Revoke #{category}",
+              type: "submit",
+              style: :danger,
+              size: :sm
+            ) %>
+          <% end %>
         <% end %>
       </div>
     <% end %>
@@ -50,13 +56,14 @@
     <h2 class="text-lg font-semibold">Resolution</h2>
     <% if @root %>
       <p class="text-sm">Selected root <code><%= @root.id %></code></p>
-      <%= render FlatPack::Button::Component.new(
-        text: "Use me as the acquisition user",
-        href: attribution_acquisition_path,
-        method: :post,
-        style: :secondary,
-        size: :md
-      ) %>
+      <%= form_with url: attribution_acquisition_path, method: :post do %>
+        <%= render FlatPack::Button::Component.new(
+          text: "Use me as the acquisition user",
+          type: "submit",
+          style: :secondary,
+          size: :md
+        ) %>
+      <% end %>
     <% else %>
       <p class="text-sm">No workspace root is selected. Use the workspace switcher, then come back.</p>
     <% end %>

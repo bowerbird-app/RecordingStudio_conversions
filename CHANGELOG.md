@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Signed-in collection and consent call `RecordingStudio.configuration.actor` with the engine controller. A zero-arity lambda still runs. Point that lambda at the controller's signed-in user; `Current.actor` is unset on these routes. Actor resolver errors are logged.
 - The dummy credentials YAML key is `recording_studio_conversions`. The encrypted file previously used `gem_template`, so `test/dummy_credentials_test.rb` failed when the shared dummy master key was present. Placeholder values are unchanged. Runtime code does not read the key.
 - IP addresses are never stored. Log filtering uses anchored `value` and `visitor_id` keys.
+- `.ruby-version` is `3.3.12`. GitHub's Ubuntu 26.04 runners only publish the newest Ruby 3.3 patch, so `3.3.6` failed `ruby/setup-ruby`.
 
 ## [0.3.0] - 2026-10-19
 
