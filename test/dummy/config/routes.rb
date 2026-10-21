@@ -6,6 +6,7 @@ Rails.application.routes.draw do
   get "/recording_studio", to: redirect("/"), as: nil
   mount RecordingStudio::Engine, at: "/recording_studio"
   mount RecordingStudioRootSwitchable::Engine, at: "/recording_studio_root_switchable"
+  mount RecordingStudioConversions::Engine, at: "/recording_studio_conversions"
 
   # Define your application routes per the DSL in https://guides.rubyonrails.org/routing.html
 
@@ -26,4 +27,12 @@ Rails.application.routes.draw do
 
   # Defines the root path route ("/")
   root "home#index"
+
+  if Rails.env.local?
+    get "attribution", to: "attribution_inspector#show", as: :attribution_inspector
+    post "attribution/consent", to: "attribution_inspector#consent", as: :attribution_consent
+    post "attribution/acquisition", to: "attribution_inspector#acquisition", as: :attribution_acquisition
+    post "attribution/users", to: "attribution_inspector#create_user", as: :attribution_users
+    delete "attribution/users/:user_id", to: "attribution_inspector#destroy_attribution", as: :attribution_user
+  end
 end

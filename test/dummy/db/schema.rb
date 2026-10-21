@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_19_000100) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_20_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -81,6 +81,51 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_19_000100) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.index ["root_recording_id"], name: "idx_rs_conversions_one_acquisition_user_per_root", unique: true
+  end
+
+  create_table "recording_studio_conversions_attribution_observations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.string "visitor_id", null: false
+    t.uuid "root_recording_id"
+    t.string "session_id"
+    t.string "provider", null: false
+    t.string "field_name", null: false
+    t.text "value", null: false
+    t.string "source", null: false
+    t.datetime "captured_at", null: false
+    t.datetime "expires_at"
+    t.string "consent_category", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["expires_at"], name: "idx_rs_conv_obs_expires"
+    t.index ["root_recording_id"], name: "idx_rs_conv_obs_root"
+    t.index ["visitor_id", "captured_at"], name: "idx_rs_conv_obs_visitor_time"
+    t.index ["visitor_id", "provider", "field_name", "captured_at"], name: "idx_rs_conv_obs_visitor_field"
+  end
+
+  create_table "recording_studio_conversions_consents", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.string "visitor_id", null: false
+    t.uuid "user_id"
+    t.string "category", null: false
+    t.boolean "granted", default: false, null: false
+    t.datetime "recorded_at", null: false
+    t.datetime "withdrawn_at"
+    t.jsonb "provenance", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["user_id"], name: "idx_rs_conv_consents_user"
+    t.index ["visitor_id", "category", "recorded_at"], name: "idx_rs_conv_consents_lookup"
+  end
+
+  create_table "recording_studio_conversions_identity_links", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.string "visitor_id", null: false
+    t.uuid "user_id", null: false
+    t.string "auth_method"
+    t.datetime "linked_at", null: false
+    t.boolean "confirmed", default: false, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["user_id"], name: "idx_rs_conv_links_user"
+    t.index ["visitor_id", "user_id"], name: "idx_rs_conv_links_pair", unique: true
   end
 
   create_table "recording_studio_conversions_occurrences", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|

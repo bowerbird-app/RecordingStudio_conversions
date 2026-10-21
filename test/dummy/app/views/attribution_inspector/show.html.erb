@@ -1,0 +1,142 @@
+<% dummy_page_nav(title: "Attribution", back_url: root_path) %>
+
+<div class="flex w-full flex-col gap-6">
+  <%= render FlatPack::PageTitle::Component.new(
+    title: "Attribution",
+    subtitle: "Dummy-only inspector for this browser's device. Development and test only.",
+    variant: :h1
+  ) %>
+
+  <p class="text-sm leading-6">
+    Device <code><%= @visitor_id.presence || "missing" %></code>.
+    Signed in as <code><%= current_user.email %></code>.
+    Open <code>/?fbclid=TEST123&amp;utm_source=meta</code>, grant advertising consent, then open that URL again.
+  </p>
+
+  <% if notice.present? %>
+    <p class="text-sm"><%= notice %></p>
+  <% end %>
+  <% if alert.present? %>
+    <p class="text-sm"><%= alert %></p>
+  <% end %>
+
+  <section class="flex flex-col gap-3">
+    <h2 class="text-lg font-semibold">Consent</h2>
+    <% if @categories.empty? %>
+      <p class="text-sm">No consent categories are configured.</p>
+    <% else %>
+      <div class="flex flex-wrap gap-2">
+        <% @categories.each do |category| %>
+          <%= form_with url: attribution_consent_path, method: :post do %>
+            <%= hidden_field_tag :category, category %>
+            <%= hidden_field_tag :granted, "true" %>
+            <%= render FlatPack::Button::Component.new(
+              text: "Grant #{category}",
+              type: "submit",
+              style: :primary,
+              size: :sm
+            ) %>
+          <% end %>
+          <%= form_with url: attribution_consent_path, method: :post do %>
+            <%= hidden_field_tag :category, category %>
+            <%= hidden_field_tag :granted, "false" %>
+            <%= render FlatPack::Button::Component.new(
+              text: "Revoke #{category}",
+              type: "submit",
+              style: :danger,
+              size: :sm
+            ) %>
+          <% end %>
+        <% end %>
+      </div>
+    <% end %>
+  </section>
+
+  <section class="flex flex-col gap-3">
+    <h2 class="text-lg font-semibold">Resolution</h2>
+    <% if @root %>
+      <p class="text-sm">Selected root <code><%= @root.id %></code></p>
+      <%= form_with url: attribution_acquisition_path, method: :post do %>
+        <%= render FlatPack::Button::Component.new(
+          text: "Use me as the acquisition user",
+          type: "submit",
+          style: :secondary,
+          size: :md
+        ) %>
+      <% end %>
+    <% else %>
+      <p class="text-sm">No workspace root is selected. Use the workspace switcher, then come back.</p>
+    <% end %>
+    <% @resolved.each do |item| %>
+      <p class="text-sm">
+        Root <code><%= item[:root_id] %></code>
+        subject <code><%= item[:subject_id] %></code>
+        status <code><%= item[:status] %></code>
+      </p>
+      <ul class="text-sm">
+        <% item[:values].each do |value| %>
+          <li><%= value %></li>
+        <% end %>
+      </ul>
+    <% end %>
+  </section>
+
+  <section class="flex flex-col gap-3">
+    <h2 class="text-lg font-semibold">Another confirmed user</h2>
+    <%= form_with url: attribution_users_path do %>
+      <div class="flex flex-col gap-3">
+        <%= render FlatPack::EmailInput::Component.new(
+          name: "email",
+          label: "Email",
+          required: true,
+          placeholder: "second@example.com"
+        ) %>
+        <%= render FlatPack::PasswordInput::Component.new(
+          name: "password",
+          label: "Password",
+          required: true,
+          help_text: "Use Password."
+        ) %>
+        <%= render FlatPack::Button::Component.new(
+          text: "Create confirmed user",
+          style: :primary,
+          size: :md,
+          type: "submit"
+        ) %>
+      </div>
+    <% end %>
+  </section>
+
+  <section class="flex flex-col gap-3">
+    <h2 class="text-lg font-semibold">Identity links</h2>
+    <%= render FlatPack::Table::Component.new(data: @links, class: "text-sm", min_width: :lg) do |table| %>
+      <% table.column(title: "Linked at") { |link| link.linked_at.utc.iso8601 } %>
+      <% table.column(title: "User") { |link| @users[link.user_id.to_s]&.email || link.user_id } %>
+      <% table.column(title: "Device") { |link| link.visitor_id } %>
+      <% table.column(title: "Confirmed") { |link| link.confirmed.to_s } %>
+      <% table.column(title: "") { |link| delete_attribution_button(link) } %>
+    <% end %>
+  </section>
+
+  <section class="flex flex-col gap-3">
+    <h2 class="text-lg font-semibold">Consents</h2>
+    <%= render FlatPack::Table::Component.new(data: @consents, class: "text-sm", min_width: :lg) do |table| %>
+      <% table.column(title: "Recorded at") { |row| row.recorded_at.utc.iso8601 } %>
+      <% table.column(title: "User") { |row| @users[row.user_id.to_s]&.email || "anonymous" } %>
+      <% table.column(title: "Device") { |row| row.visitor_id } %>
+      <% table.column(title: "Category") { |row| row.category } %>
+      <% table.column(title: "State") { |row| row.withdrawn_at.present? || !row.granted ? "withdrawn" : "granted" } %>
+    <% end %>
+  </section>
+
+  <section class="flex flex-col gap-3">
+    <h2 class="text-lg font-semibold">Observations</h2>
+    <%= render FlatPack::Table::Component.new(data: @observations, class: "text-sm", min_width: :lg) do |table| %>
+      <% table.column(title: "Captured at") { |row| row.captured_at.utc.iso8601 } %>
+      <% table.column(title: "Device") { |row| row.visitor_id } %>
+      <% table.column(title: "Category") { |row| row.consent_category } %>
+      <% table.column(title: "Field") { |row| row.field_name } %>
+      <% table.column(title: "Value") { |row| row.value } %>
+    <% end %>
+  </section>
+</div>

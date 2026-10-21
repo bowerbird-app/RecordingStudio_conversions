@@ -23,4 +23,11 @@ RecordingStudioConversions.configure do |config|
   # carry raw options, so never cache, log, or serialize a destination.
   # config.register_adapter :example, ExampleAdapter
   # config.destination :example, adapter: :example
+
+  # The default resolver reads the one acquisition user recorded with
+  # RecordingStudioConversions.record_acquisition_user! after Onboarding.
+  # Return nil when that user cannot be resolved. Do not return another member.
+  # config.attribution_subject_resolver = lambda do |event|
+  #   RecordingStudioConversions::AcquisitionSubject.for_root(event.root_recording_id)
+  # end
 end

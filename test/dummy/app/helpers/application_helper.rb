@@ -7,6 +7,16 @@ module ApplicationHelper
     )
 
     recording_studio_page_nav_right do
+      if Rails.env.local?
+        concat render(
+          FlatPack::Button::Component.new(
+            text: "Attribution",
+            style: :ghost,
+            size: :md,
+            url: attribution_inspector_path
+          )
+        )
+      end
       concat recording_studio_root_switch_dropdown(style: :ghost, size: :md)
       concat render(
         FlatPack::Button::Component.new(
@@ -16,6 +26,19 @@ module ApplicationHelper
           url: main_app.destroy_user_session_path,
           data: { turbo_method: :delete }
         )
+      )
+    end
+  end
+
+  def delete_attribution_button(link)
+    return if @visitor_id.blank? || link.visitor_id != @visitor_id
+
+    form_with url: attribution_user_path(link.user_id), method: :delete do
+      render FlatPack::Button::Component.new(
+        text: "Delete attribution",
+        type: "submit",
+        style: :danger,
+        size: :sm
       )
     end
   end

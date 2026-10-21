@@ -10,8 +10,9 @@ module RecordingStudioConversions
 
     Subscription = Data.define(:source_name, :canonical_name, :id_key)
 
-    attr_accessor :raise_errors, :user_class_name, :excluded_subscription_statuses
-    attr_reader :hooks, :subscriptions, :rules, :adapters
+    attr_accessor :raise_errors, :user_class_name, :excluded_subscription_statuses,
+                  :attribution_subject_resolver, :collection_context
+    attr_reader :hooks, :subscriptions, :rules, :adapters, :collection_resolvers
 
     def initialize
       assign_defaults
@@ -19,14 +20,32 @@ module RecordingStudioConversions
     end
 
     def assign_defaults
+      assign_runtime_defaults
+      assign_collection_defaults
+    end
+
+    def assign_runtime_defaults
       @hooks = RecordingStudio::Hooks.new
       @raise_errors = false
       @user_class_name = "User"
       @excluded_subscription_statuses = %w[canceled]
       @subscriptions = []
       @rules = []
+    end
+
+    def assign_collection_defaults
       @adapters = Adapters::Registry.new
       @destinations = []
+      @attribution_subject_resolver = nil
+      @collection_context = nil
+      @collection_resolvers = {}
+    end
+
+    def collection_resolver(name, callable = nil, &block)
+      resolver = callable || block
+      raise ArgumentError, "resolver #{name} needs a callable" unless resolver.respond_to?(:call)
+
+      @collection_resolvers[name.to_sym] = resolver
     end
 
     def register_sources
