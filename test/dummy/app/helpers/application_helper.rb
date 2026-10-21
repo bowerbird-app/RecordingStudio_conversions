@@ -7,6 +7,16 @@ module ApplicationHelper
     )
 
     recording_studio_page_nav_right do
+      if Rails.env.local?
+        concat render(
+          FlatPack::Button::Component.new(
+            text: "Attribution",
+            style: :ghost,
+            size: :md,
+            url: attribution_inspector_path
+          )
+        )
+      end
       concat recording_studio_root_switch_dropdown(style: :ghost, size: :md)
       concat render(
         FlatPack::Button::Component.new(

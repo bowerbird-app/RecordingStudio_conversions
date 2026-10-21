@@ -12,6 +12,7 @@ class ApplicationController < ActionController::Base
 
   before_action :authenticate_user!
   before_action :set_current_actor
+  before_action :link_signed_in_identity
 
   private
 
@@ -21,5 +22,14 @@ class ApplicationController < ActionController::Base
 
   def set_current_actor
     Current.actor = current_user
+  end
+
+  def link_signed_in_identity
+    return unless current_user
+
+    RecordingStudioConversions::IdentityLinker.from_request(
+      visitor_id: RecordingStudioConversions::VisitorId.from_request(request),
+      user: current_user
+    )
   end
 end

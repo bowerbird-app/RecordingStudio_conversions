@@ -243,6 +243,61 @@ class AttributionIdentityTest < ActiveSupport::TestCase
     assert_equal({ "source" => "host" }, RecordingStudioConversions::ConsentRecord.last.provenance)
   end
 
+  test "a link is written with no consent record at all" do
+    user = create_user(confirmed_at: Time.current)
+    rule :registration, "users.registered"
+    assert_equal 0, RecordingStudioConversions::ConsentRecord.count
+
+    publish_registration(user)
+
+    assert RecordingStudioConversions::IdentityLink.exists?(user_id: user.id)
+    assert_equal 0, RecordingStudioConversions::ConsentRecord.count
+  end
+
+  test "no new identity link is written after consent is withdrawn" do
+    first = create_user(confirmed_at: Time.current)
+    second = create_user(confirmed_at: Time.current)
+    rule :registration, "users.registered"
+    publish_registration(first)
+    withdraw_advertising
+
+    publish_registration(second)
+
+    refute RecordingStudioConversions::IdentityLink.exists?(user_id: second.id)
+  end
+
+  test "an identity link written before withdrawal is kept" do
+    user = create_user(confirmed_at: Time.current)
+    rule :registration, "users.registered"
+    publish_registration(user)
+    link = RecordingStudioConversions::IdentityLink.find_by!(user_id: user.id)
+    withdraw_advertising
+
+    publish_registration(user)
+
+    kept = RecordingStudioConversions::IdentityLink.find_by!(user_id: user.id)
+    assert_equal link.id, kept.id
+  end
+
+  test "a later consent grant resumes identity linking" do
+    first = create_user(confirmed_at: Time.current)
+    second = create_user(confirmed_at: Time.current)
+    rule :registration, "users.registered"
+    publish_registration(first)
+    withdraw_advertising
+    publish_registration(second)
+    RecordingStudioConversions.record_consent!(
+      visitor_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      category: "advertising",
+      granted: true
+    )
+
+    publish_registration(second)
+
+    assert RecordingStudioConversions::IdentityLink.exists?(user_id: first.id)
+    assert RecordingStudioConversions::IdentityLink.exists?(user_id: second.id)
+  end
+
   test "an unknown consent provenance source is rejected" do
     assert_raises(ArgumentError) do
       RecordingStudioConversions.record_consent!(
@@ -256,6 +311,14 @@ class AttributionIdentityTest < ActiveSupport::TestCase
   end
 
   private
+
+  def withdraw_advertising
+    RecordingStudioConversions.record_consent!(
+      visitor_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      category: "advertising",
+      granted: false
+    )
+  end
 
   def grant_consent
     RecordingStudioConversions.record_consent!(

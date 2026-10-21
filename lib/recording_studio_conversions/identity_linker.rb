@@ -28,6 +28,8 @@ module RecordingStudioConversions
     end
 
     def record!(visitor_id:, user_id:, auth_method:, confirmed:)
+      return if ConsentLedger.withdrawn_for_visitor?(visitor_id)
+
       IdentityLink.insert(link_row(visitor_id, user_id, auth_method, confirmed), unique_by: :idx_rs_conv_links_pair)
     end
 

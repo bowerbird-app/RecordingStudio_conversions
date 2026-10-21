@@ -14,6 +14,27 @@ module RecordingStudioConversions
       row.granted && row.withdrawn_at.nil?
     end
 
+    # No consent row is not a withdrawal. Identity links stay allowed until the
+    # latest row for a configured category is withdrawn.
+    def withdrawn_for_visitor?(visitor_id)
+      return false if visitor_id.blank?
+
+      consent_categories.any? { |category| withdrawn?(visitor_id: visitor_id, category: category) }
+    end
+
+    def withdrawn?(visitor_id:, category:, at: Time.current)
+      row = latest(visitor_id, category, at)
+      return false if row.nil?
+
+      !row.granted || row.withdrawn_at.present?
+    end
+
+    def consent_categories
+      RecordingStudioConversions.configuration.enabled_adapters.filter_map do |adapter|
+        adapter.consent&.category
+      end.uniq
+    end
+
     # A signed-in withdrawal carries user_id. Clearing it before the delete keeps
     # that row, so an earlier anonymous grant does not become the latest consent.
     def detach_user!(user_id)
