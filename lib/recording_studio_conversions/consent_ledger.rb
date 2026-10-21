@@ -4,6 +4,7 @@ module RecordingStudioConversions
   # Consent answers. Collection and later resolution both read the latest row.
   module ConsentLedger
     PROVENANCE_SOURCES = %w[browser host].freeze
+    ADVERTISING_CATEGORY = :advertising
 
     module_function
 
@@ -14,12 +15,14 @@ module RecordingStudioConversions
       row.granted && row.withdrawn_at.nil?
     end
 
-    # No consent row is not a withdrawal. Identity links stay allowed until the
-    # latest row for a configured category is withdrawn.
+    # No consent row is not a withdrawal. New identity links stop when advertising
+    # is withdrawn, including when no adapter is enabled, or when an enabled
+    # adapter's consent category is withdrawn.
     def withdrawn_for_visitor?(visitor_id)
       return false if visitor_id.blank?
 
-      consent_categories.any? { |category| withdrawn?(visitor_id: visitor_id, category: category) }
+      categories = (consent_categories + [ADVERTISING_CATEGORY]).uniq
+      categories.any? { |category| withdrawn?(visitor_id: visitor_id, category: category) }
     end
 
     def withdrawn?(visitor_id:, category:, at: Time.current)

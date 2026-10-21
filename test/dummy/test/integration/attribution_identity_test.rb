@@ -243,6 +243,61 @@ class AttributionIdentityTest < ActiveSupport::TestCase
     assert_equal({ "source" => "host" }, RecordingStudioConversions::ConsentRecord.last.provenance)
   end
 
+  test "an advertising withdrawal blocks new links when no adapter is enabled" do
+    RecordingStudioConversions.configuration.clear_adapters!
+    assert_empty RecordingStudioConversions.configuration.enabled_adapters
+    visitor_id = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+    registered = create_user(confirmed_at: Time.current)
+    signed_in = create_user(confirmed_at: Time.current)
+    rule :registration, "users.registered"
+    withdraw_advertising
+
+    publish_registration(registered)
+    RecordingStudioConversions::IdentityLinker.from_request(visitor_id: visitor_id, user: signed_in)
+
+    refute RecordingStudioConversions::IdentityLink.exists?(user_id: registered.id)
+    refute RecordingStudioConversions::IdentityLink.exists?(user_id: signed_in.id)
+  end
+
+  test "re-granting advertising resumes linking when no adapter is enabled" do
+    RecordingStudioConversions.configuration.clear_adapters!
+    assert_empty RecordingStudioConversions.configuration.enabled_adapters
+    visitor_id = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+    registered = create_user(confirmed_at: Time.current)
+    signed_in = create_user(confirmed_at: Time.current)
+    rule :registration, "users.registered"
+    withdraw_advertising
+    publish_registration(registered)
+    grant_consent
+
+    publish_registration(registered)
+    RecordingStudioConversions::IdentityLinker.from_request(visitor_id: visitor_id, user: signed_in)
+
+    assert RecordingStudioConversions::IdentityLink.exists?(user_id: registered.id, visitor_id: visitor_id)
+    assert RecordingStudioConversions::IdentityLink.exists?(user_id: signed_in.id, visitor_id: visitor_id)
+  end
+
+  test "an existing link survives an advertising withdrawal when no adapter is enabled" do
+    RecordingStudioConversions.configuration.clear_adapters!
+    assert_empty RecordingStudioConversions.configuration.enabled_adapters
+    visitor_id = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+    registered = create_user(confirmed_at: Time.current)
+    signed_in = create_user(confirmed_at: Time.current)
+    rule :registration, "users.registered"
+    publish_registration(registered)
+    link = RecordingStudioConversions::IdentityLink.find_by!(user_id: registered.id)
+    withdraw_advertising
+
+    publish_registration(signed_in)
+    RecordingStudioConversions::IdentityLinker.from_request(visitor_id: visitor_id, user: signed_in)
+
+    kept = RecordingStudioConversions::IdentityLink.find(link.id)
+    assert_equal link.id, kept.id
+    assert_equal registered.id, kept.user_id
+    assert_equal visitor_id, kept.visitor_id
+    refute RecordingStudioConversions::IdentityLink.exists?(user_id: signed_in.id)
+  end
+
   test "a link is written with no consent record at all" do
     user = create_user(confirmed_at: Time.current)
     rule :registration, "users.registered"
