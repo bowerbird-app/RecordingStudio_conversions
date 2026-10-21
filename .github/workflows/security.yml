@@ -28,7 +28,8 @@ jobs:
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: .ruby-version
+          # ubuntu-latest only publishes the newest 3.3 patch, not the .ruby-version pin.
+          ruby-version: "3.3"
           bundler-cache: true
         env:
           BUNDLE_GEMFILE: test/dummy/Gemfile
@@ -50,7 +51,8 @@ jobs:
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: .ruby-version
+          # ubuntu-latest only publishes the newest 3.3 patch, not the .ruby-version pin.
+          ruby-version: "3.3"
           bundler-cache: true
         env:
           BUNDLE_GEMFILE: test/dummy/Gemfile
@@ -72,7 +74,8 @@ jobs:
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: .ruby-version
+          # ubuntu-latest only publishes the newest 3.3 patch, not the .ruby-version pin.
+          ruby-version: "3.3"
           bundler-cache: true
         env:
           BUNDLE_GEMFILE: test/dummy/Gemfile
