@@ -8,10 +8,13 @@ class AttributionInspectorTest < ActionDispatch::IntegrationTest
 
   setup do
     configuration = RecordingStudioConversions.configuration
-    configuration.register_adapter :dummy_ads, DummyAdsAdapter unless configuration.adapters.registered?(:dummy_ads)
-    if configuration.destinations.none? { |item| item.key == :dummy_ads }
-      configuration.destination :dummy_ads, adapter: :dummy_ads
-    end
+    configuration.clear_adapters!
+    configuration.register_adapter :dummy_ads, DummyAdsAdapter
+    configuration.destination :dummy_ads, adapter: :dummy_ads
+  end
+
+  teardown do
+    RecordingStudioConversions.configuration.clear_adapters!
   end
 
   test "the inspector requires a signed-in user and is linked from the nav" do
@@ -35,6 +38,8 @@ class AttributionInspectorTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_includes response.body, "Grant advertising"
     assert_includes response.body, "Revoke advertising"
+    assert_includes response.body, "Use Password."
+    refute_includes response.body, 'value="Password"'
     assert_includes response.body, user.email
     assert RecordingStudioConversions::IdentityLink.exists?(user_id: user.id)
     assert_equal 0, RecordingStudioConversions::ConsentRecord.where(user_id: user.id).count
@@ -88,6 +93,32 @@ class AttributionInspectorTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "fbclid=TEST123"
     refute RecordingStudioConversions::IdentityLink.exists?(user_id: first.id)
     assert RecordingStudioConversions::IdentityLink.exists?(user_id: second.id)
+  end
+
+  test "delete attribution is only offered for the current device" do
+    user = confirmed_user
+    foreign = confirmed_user
+    sign_in user
+    get attribution_inspector_path
+    visitor_id = RecordingStudioConversions::IdentityLink.find_by!(user_id: user.id).visitor_id
+    RecordingStudioConversions::IdentityLink.insert(
+      {
+        id: SecureRandom.uuid, visitor_id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc", user_id: foreign.id,
+        auth_method: nil, linked_at: Time.current, confirmed: true, created_at: Time.current, updated_at: Time.current
+      },
+      unique_by: :idx_rs_conv_links_pair
+    )
+
+    get attribution_inspector_path
+
+    assert_includes response.body, foreign.email
+    assert_equal 1, response.body.scan("Delete attribution").size
+    delete attribution_user_path(foreign.id)
+    follow_redirect!
+
+    assert_includes response.body, "not linked to this device"
+    assert RecordingStudioConversions::IdentityLink.exists?(user_id: foreign.id, visitor_id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc")
+    assert RecordingStudioConversions::IdentityLink.exists?(user_id: user.id, visitor_id: visitor_id)
   end
 
   private

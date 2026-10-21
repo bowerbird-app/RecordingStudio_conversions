@@ -46,7 +46,13 @@ class AttributionInspectorController < ApplicationController
   end
 
   def destroy_attribution
-    RecordingStudioConversions.delete_attribution_for_user!(params[:user_id])
+    user_id = params[:user_id].to_s
+    unless RecordingStudioConversions::IdentityLink.exists?(user_id: user_id, visitor_id: visitor_id)
+      redirect_to attribution_inspector_path, alert: "That user is not linked to this device."
+      return
+    end
+
+    RecordingStudioConversions.delete_attribution_for_user!(user_id)
     redirect_to attribution_inspector_path
   end
 

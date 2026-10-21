@@ -29,4 +29,16 @@ module ApplicationHelper
       )
     end
   end
+
+  def delete_attribution_button(link)
+    return if @visitor_id.blank? || link.visitor_id != @visitor_id
+
+    render FlatPack::Button::Component.new(
+      text: "Delete attribution",
+      href: attribution_user_path(link.user_id),
+      method: :delete,
+      style: :danger,
+      size: :sm
+    )
+  end
 end

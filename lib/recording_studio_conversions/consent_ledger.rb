@@ -57,7 +57,7 @@ module RecordingStudioConversions
 
       ConsentRecord.where(visitor_id: visitor_id, category: category.to_s)
                    .where(recorded_at: ..at)
-                   .order(recorded_at: :desc, created_at: :desc)
+                   .order(recorded_at: :desc, created_at: :desc, granted: :asc)
                    .first
     end
 

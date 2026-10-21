@@ -268,15 +268,25 @@ class AttributionIdentityTest < ActiveSupport::TestCase
 
   test "an identity link written before withdrawal is kept" do
     user = create_user(confirmed_at: Time.current)
+    other = create_user(confirmed_at: Time.current)
     rule :registration, "users.registered"
     publish_registration(user)
     link = RecordingStudioConversions::IdentityLink.find_by!(user_id: user.id)
     withdraw_advertising
 
-    publish_registration(user)
+    publish_registration(other)
+    user.update!(email: "kept-#{SecureRandom.hex(4)}@example.com")
+    RecordingStudioConversions::AttributionObservation.create!(
+      visitor_id: link.visitor_id, provider: "catalog", field_name: "click_id", value: "kept-click",
+      source: "query_parameter", captured_at: Time.current, consent_category: "advertising"
+    )
 
-    kept = RecordingStudioConversions::IdentityLink.find_by!(user_id: user.id)
+    kept = RecordingStudioConversions::IdentityLink.find(link.id)
     assert_equal link.id, kept.id
+    assert_equal user.id, kept.user_id
+    assert_equal link.visitor_id, kept.visitor_id
+    assert_equal link.linked_at, kept.linked_at
+    refute RecordingStudioConversions::IdentityLink.exists?(user_id: other.id)
   end
 
   test "a later consent grant resumes identity linking" do
@@ -296,6 +306,63 @@ class AttributionIdentityTest < ActiveSupport::TestCase
 
     assert RecordingStudioConversions::IdentityLink.exists?(user_id: first.id)
     assert RecordingStudioConversions::IdentityLink.exists?(user_id: second.id)
+  end
+
+  test "a withdrawn category blocks new links while another category stays granted" do
+    RecordingStudioConversions.configuration.register_adapter :analytics_ledger, AnalyticsLedgerAdapter
+    RecordingStudioConversions.configuration.destination :analytics_ledger, adapter: :analytics_ledger
+    first = create_user(confirmed_at: Time.current)
+    second = create_user(confirmed_at: Time.current)
+    visitor_id = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+    rule :registration, "users.registered"
+    publish_registration(first)
+    RecordingStudioConversions.record_consent!(visitor_id: visitor_id, category: "advertising", granted: true)
+    RecordingStudioConversions.record_consent!(visitor_id: visitor_id, category: "analytics", granted: false)
+
+    publish_registration(second)
+
+    assert RecordingStudioConversions::IdentityLink.exists?(user_id: first.id)
+    refute RecordingStudioConversions::IdentityLink.exists?(user_id: second.id)
+  end
+
+  test "a withdrawal that survives user deletion still blocks a new link" do
+    owner = create_user(confirmed_at: Time.current)
+    keeper = create_user(confirmed_at: Time.current)
+    newcomer = create_user(confirmed_at: Time.current)
+    visitor_id = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+    rule :registration, "users.registered"
+    publish_registration(owner)
+    publish_registration(keeper)
+    RecordingStudioConversions.record_consent!(
+      visitor_id: visitor_id, category: "advertising", granted: false, user_id: owner.id
+    )
+
+    RecordingStudioConversions.delete_attribution_for_user!(owner.id)
+    publish_registration(newcomer)
+
+    assert RecordingStudioConversions::ConsentRecord.exists?(
+      visitor_id: visitor_id, category: "advertising", granted: false, user_id: nil
+    )
+    refute RecordingStudioConversions::IdentityLink.exists?(user_id: owner.id)
+    assert RecordingStudioConversions::IdentityLink.exists?(user_id: keeper.id)
+    refute RecordingStudioConversions::IdentityLink.exists?(user_id: newcomer.id)
+  end
+
+  test "a withdrawal wins when consent timestamps tie" do
+    visitor_id = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+    at = Time.current.change(usec: 0)
+    provenance = { "source" => "host" }
+    RecordingStudioConversions::ConsentRecord.create!(
+      visitor_id: visitor_id, category: "advertising", granted: false,
+      recorded_at: at, withdrawn_at: at, provenance: provenance, created_at: at, updated_at: at
+    )
+    RecordingStudioConversions::ConsentRecord.create!(
+      visitor_id: visitor_id, category: "advertising", granted: true,
+      recorded_at: at, withdrawn_at: nil, provenance: provenance, created_at: at, updated_at: at
+    )
+
+    assert RecordingStudioConversions::ConsentLedger.withdrawn?(visitor_id: visitor_id, category: "advertising")
+    refute RecordingStudioConversions::ConsentLedger.granted?(visitor_id: visitor_id, category: "advertising")
   end
 
   test "an unknown consent provenance source is rejected" do
@@ -386,5 +453,16 @@ class AttributionIdentityTest < ActiveSupport::TestCase
     source_id = payload[:id] || payload[:user_id]
     row = RecordingStudioConversions::Occurrence.find_by(source_event_id: source_id.to_s)
     [row, RecordingStudioConversions::Occurrence.count - before]
+  end
+end
+
+class AnalyticsLedgerAdapter < RecordingStudioConversions::Adapters::Base
+  key :analytics_ledger
+
+  consent category: :analytics, collection: true, delivery: false
+  delivery_channels :server
+
+  attribution do
+    field :ref_id, source: :query_parameter, required: false, sensitivity: :identifier
   end
 end

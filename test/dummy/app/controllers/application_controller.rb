@@ -12,7 +12,7 @@ class ApplicationController < ActionController::Base
 
   before_action :authenticate_user!
   before_action :set_current_actor
-  before_action :link_signed_in_identity
+  before_action :link_signed_in_identity, if: :link_signed_in_identity?
 
   private
 
@@ -22,6 +22,12 @@ class ApplicationController < ActionController::Base
 
   def set_current_actor
     Current.actor = current_user
+  end
+
+  # Development writes a link on every signed-in host page. Test keeps that
+  # for the inspector only, so other dummy requests do not insert links.
+  def link_signed_in_identity?
+    Rails.env.development? || (Rails.env.test? && is_a?(AttributionInspectorController))
   end
 
   def link_signed_in_identity
