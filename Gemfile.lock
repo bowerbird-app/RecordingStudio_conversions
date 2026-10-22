@@ -80,7 +80,7 @@ GIT
 PATH
   remote: .
   specs:
-    recording_studio_conversions (0.3.0)
+    recording_studio_conversions (0.4.0)
       rails (~> 8.1.0)
       recording_studio (~> 4.2)
       recording_studio_views (~> 0.3.0)
@@ -472,7 +472,7 @@ CHECKSUMS
   rdoc (8.1.0) sha256=befc37880a5cfd36dcb176c748b5fd5ee39dd3536a75e81824e4972ce230f60a
   recording_studio (4.7.0)
   recording_studio_accessible (0.18.0)
-  recording_studio_conversions (0.3.0)
+  recording_studio_conversions (0.4.0)
   recording_studio_logs (0.4.0)
   recording_studio_metrics (0.2.0)
   recording_studio_stripe (0.13.0)
