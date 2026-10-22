@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-21
+
 ### Added
 - Attribution collection. Permitted provider fields are stored as historical observations, with consent, expiry, and root isolation. Personal values are not stored. The host resolver must agree with the one acquisition user recorded for a workspace.
 - Browser tracker. Layouts opt in with `recording_studio_conversions_tags`. The shared script is plain JavaScript, not a Stimulus controller, so the host does not register one. It collects declared query parameters and cookies after consent, and a later grant posts only fields not already sent for that URL. It loads a provider module by the adapter's `browser_module` name. It does not set a cookie or record page views. Module responses are `403` until consent and `200` after, with `Cache-Control: private` and `Vary: Cookie`.
@@ -145,7 +147,8 @@ New addons copied from this template are born on Recording Studio 4.x.
 - Comprehensive README and documentation
 - Basic test suite with Minitest
 
-[Unreleased]: https://github.com/bowerbird-app/RecordingStudio_conversions/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/bowerbird-app/RecordingStudio_conversions/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/bowerbird-app/RecordingStudio_conversions/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/bowerbird-app/RecordingStudio_conversions/compare/v0.2.3...v0.3.0
 [0.2.3]: https://github.com/bowerbird-app/RecordingStudio_conversions/releases/tag/v0.2.3
 [0.2.2]: https://github.com/bowerbird-app/RecordingStudio_conversions/releases/tag/v0.2.2
