@@ -230,11 +230,11 @@ class BrowserTrackerTest < ActionDispatch::IntegrationTest
     logger.define_singleton_method(:error) { |message| messages << message }
     old_logger = Rails.logger
     Rails.logger = logger
-    RecordingStudioConversions::SignedInActor.instance_variable_set(:@resolver_error_logged, false)
-    RecordingStudio.configuration.actor = ->(*) { raise "actor blew up" }
+    RecordingStudioConversions::SignedInActor.reset_resolver_error_log!
+    RecordingStudio.configuration.actor = ->(*) { raise ArgumentError, "actor blew up" }
     assert_nil RecordingStudioConversions::SignedInActor.resolve(Object.new)
     assert_nil RecordingStudioConversions::SignedInActor.resolve(Object.new)
-    assert_equal ["[RecordingStudioConversions] actor resolver failed: RuntimeError"], messages
+    assert_equal ["[RecordingStudioConversions] actor resolver failed: ArgumentError"], messages
   ensure
     RecordingStudio.configuration.actor = previous
     Rails.logger = old_logger if old_logger

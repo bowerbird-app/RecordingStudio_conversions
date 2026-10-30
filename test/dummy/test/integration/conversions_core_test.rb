@@ -243,7 +243,7 @@ class ConversionsCoreTest < ActiveSupport::TestCase
     envelope = RecordingStudioConversions::Envelope.from_record(occurrence)
     change = writer_change("registration", envelope, nil, "matched", nil)
 
-    recovered = occurrence_writer.send(:recover, change)
+    recovered = occurrence_writer.recover(change)
 
     assert_equal occurrence.id, recovered.id
     assert_equal "suppressed", recovered.outcome
@@ -264,7 +264,7 @@ class ConversionsCoreTest < ActiveSupport::TestCase
     subject = RecordingStudioConversions::AcquisitionSubject.for_root(root.id)
     change = writer_change("trial", envelope, subject, "matched", nil)
 
-    recovered = occurrence_writer(user).send(:recover, change)
+    recovered = occurrence_writer(user).recover(change)
 
     assert_equal "matched", winner.reload.outcome
     assert_equal "suppressed", recovered.outcome

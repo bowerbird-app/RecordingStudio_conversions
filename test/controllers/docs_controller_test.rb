@@ -26,9 +26,10 @@ class DocsControllerTest < ActionDispatch::IntegrationTest
     get docs_install_path
     assert_response :success
     assert_select "h1", text: "Install"
-    assert_includes response.body, "Step 1"
-    assert_includes response.body, "Provide one section title for each step"
-    assert_includes response.body, "# Put the step instruction here."
+    assert_includes response.body, "Add the gem"
+    assert_includes response.body, "Mount and migrate"
+    assert_includes response.body, "recording_studio_conversions:install"
+    assert_includes response.body, "recording_studio_conversions:migrations"
   end
 
   test "config page renders successfully" do
@@ -79,6 +80,7 @@ class DocsControllerTest < ActionDispatch::IntegrationTest
     folder_recording = record_child(folder, root_recording, root_recording)
     page = Page.create!(title: "API")
     record_child(page, root_recording, folder_recording)
+    grant_owner_access!(root_recording)
 
     get docs_recordings_tree_path
 
@@ -87,8 +89,8 @@ class DocsControllerTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "Workspace: Tree Workspace"
     assert_includes response.body, "Folder: Reference"
     assert_includes response.body, "Page: API"
+    assert_includes response.body, "Access: Admin for #{@user.email}"
     refute_includes response.body, "Access boundary"
-    refute_includes response.body, "Access: Admin"
     assert_select "div[role='tree']", count: 1
     assert_select "[role='treeitem']", minimum: 3
     refute_includes response.body, "Current structure"
@@ -107,11 +109,12 @@ class DocsControllerTest < ActionDispatch::IntegrationTest
     get docs_methods_path
     assert_response :success
     assert_select "h1", text: "Methods"
-    assert_includes response.body, "Document the public methods your addon exposes."
-    assert_includes response.body, "Example method"
-    assert_includes response.body, "recordingstudio_addon.example_method"
-    assert_includes response.body, "# Explain what this method does before the example."
-    assert_includes response.body, "Provide one section title and codeblock for each method"
+    assert_includes response.body, "The public conversion helpers a host calls."
+    assert_includes response.body, "Record consent"
+    assert_includes response.body, "RecordingStudioConversions.record_consent!"
+    assert_includes response.body, "RecordingStudioConversions.record_acquisition_user!"
+    assert_includes response.body, "RecordingStudioConversions.attribution_for"
+    refute_includes response.body, "recordingstudio_addon.example_method"
   end
 
   test "authenticated docs pages use the recording studio default layout" do
@@ -155,6 +158,16 @@ class DocsControllerTest < ActionDispatch::IntegrationTest
   def recordable_type_summary(recording_count, recordable_count)
     "#{ActionController::Base.helpers.pluralize(recording_count, 'recording')} point to this type " \
       "• #{ActionController::Base.helpers.pluralize(recordable_count, 'recordable')} in the database"
+  end
+
+  def grant_owner_access!(root_recording)
+    return if RecordingStudioAccessible.authorized?(actor: @user, recording: root_recording, role: :view)
+
+    result = RecordingStudioAccessible.bootstrap_owner_access!(recording: root_recording, actor: @user)
+    return if result.success?
+    return if RecordingStudioAccessible.authorized?(actor: @user, recording: root_recording, role: :view)
+
+    raise result.error
   end
 
   def record_child(recordable, root_recording, parent_recording)

@@ -22,7 +22,7 @@ module RecordingStudioConversions
       name = user_class_name
       return if name.blank?
 
-      klass = name.safe_constantize
+      klass = load_user_class(name)
       return unresolved_class!(name) if klass.nil?
       return unless table_ready?(klass)
       return if confirmable_class?(klass)
@@ -70,13 +70,27 @@ module RecordingStudioConversions
     end
 
     def user_class_name
-      if defined?(::RecordingStudioUser) && ::RecordingStudioUser.respond_to?(:config)
-        from_users = ::RecordingStudioUser.config.user_class_name.to_s
+      from_users = users_gem_class_name
+      if from_users
         warn_user_class_mismatch(from_users)
         from_users
       else
         RecordingStudioConversions.configuration.user_class_name.to_s
       end
+    end
+
+    def load_user_class(name)
+      name.safe_constantize
+    end
+
+    def users_gem_class_name
+      return unless defined?(::RecordingStudioUser) && ::RecordingStudioUser.respond_to?(:config)
+
+      ::RecordingStudioUser.config.user_class_name.to_s
+    end
+
+    def reset_mismatch_warning!
+      @mismatch_warned = nil
     end
 
     def warn_user_class_mismatch(from_users)

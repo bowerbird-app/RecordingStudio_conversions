@@ -7,34 +7,12 @@ module RecordingStudioConversions
     isolate_namespace RecordingStudioConversions
 
     class << self
-      def load_yaml_config(app)
-        return unless app.respond_to?(:config_for)
-
-        yaml = app.config_for(:recording_studio_conversions)
-        RecordingStudioConversions.configuration.merge!(yaml) if yaml.respond_to?(:each)
-      rescue StandardError
-        nil
-      end
-
       def apply_model_extensions(target)
         apply_extensions(target, extensions_for(:model, extension_keys_for(target)))
       end
 
       def apply_controller_extensions(target)
         apply_extensions(target, extensions_for(:controller, extension_keys_for(target)))
-      end
-
-      private
-
-      def extensions_for(kind, names)
-        hooks = RecordingStudioConversions.configuration.hooks
-        Array(names).flat_map do |name|
-          if kind == :model
-            hooks.model_extensions_for(name)
-          else
-            hooks.controller_extensions_for(name)
-          end
-        end
       end
 
       def apply_extensions(target, extensions)
@@ -55,6 +33,19 @@ module RecordingStudioConversions
       def extension_keys_for(target)
         names = [target.name, target.name&.demodulize].compact.uniq
         names.map(&:to_sym)
+      end
+
+      private
+
+      def extensions_for(kind, names)
+        hooks = RecordingStudioConversions.configuration.hooks
+        Array(names).flat_map do |name|
+          if kind == :model
+            hooks.model_extensions_for(name)
+          else
+            hooks.controller_extensions_for(name)
+          end
+        end
       end
 
       def identity_hash
@@ -88,13 +79,9 @@ module RecordingStudioConversions
         if xcfg.respond_to?(:to_h)
           RecordingStudioConversions.configuration.merge!(xcfg.to_h)
         else
-          begin
-            hash = {}
-            xcfg.each_pair { |k, v| hash[k] = v } if xcfg.respond_to?(:each_pair)
-            RecordingStudioConversions.configuration.merge!(hash) if hash&.any?
-          rescue StandardError => _e
-            # ignore
-          end
+          hash = {}
+          xcfg.each_pair { |k, v| hash[k] = v } if xcfg.respond_to?(:each_pair)
+          RecordingStudioConversions.configuration.merge!(hash) if hash&.any?
         end
       end
 

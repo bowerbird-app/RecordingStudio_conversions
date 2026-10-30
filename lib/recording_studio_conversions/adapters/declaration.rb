@@ -35,6 +35,10 @@ module RecordingStudioConversions
         assign_channels(names)
       end
 
+      def declared_delivery_channels
+        @delivery_channels
+      end
+
       def max_event_age(duration = :unset)
         return @max_event_age if duration == :unset
 

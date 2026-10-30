@@ -9,17 +9,7 @@ class ExampleCapabilityTest < Minitest::Test
   end
 
   def setup
-    @original_capabilities =
-      RecordingStudio.configuration.instance_variable_get(:@capabilities).transform_values(&:dup)
-    @original_capability_options =
-      RecordingStudio.configuration.instance_variable_get(:@capability_options).dup
-    RecordingStudio.configuration.instance_variable_set(:@capabilities, {})
-    RecordingStudio.configuration.instance_variable_set(:@capability_options, {})
-  end
-
-  def teardown
-    RecordingStudio.configuration.instance_variable_set(:@capabilities, @original_capabilities)
-    RecordingStudio.configuration.instance_variable_set(:@capability_options, @original_capability_options)
+    @isolated_configuration = RecordingStudio::Configuration.new
   end
 
   def test_to_is_the_include_for_wrapper_not_a_fourth_verb
@@ -52,29 +42,41 @@ class ExampleCapabilityTest < Minitest::Test
   end
 
   def test_to_does_not_enable_until_included
-    mixin = RecordingStudio::Capabilities::Example.to(label: "probe")
+    with_isolated_capabilities do
+      mixin = RecordingStudio::Capabilities::Example.to(label: "probe")
 
-    assert_kind_of Module, mixin
-    refute RecordingStudio.capability_enabled?(:example, for: Probe::HostType)
-    assert_nil RecordingStudio.capability_options(:example, for: Probe::HostType)
-    assert_empty RecordingStudio.configuration.enabled_recordable_types_for(:example)
+      assert_kind_of Module, mixin
+      refute RecordingStudio.capability_enabled?(:example, for: Probe::HostType)
+      assert_nil RecordingStudio.capability_options(:example, for: Probe::HostType)
+      assert_empty RecordingStudio.configuration.enabled_recordable_types_for(:example)
+    end
   end
 
   def test_including_to_enables_via_include_for_and_sets_options
-    Probe::HostType.include(RecordingStudio::Capabilities::Example.to(label: "probe", servings: 2))
+    with_isolated_capabilities do
+      Probe::HostType.include(RecordingStudio::Capabilities::Example.to(label: "probe", servings: 2))
 
-    assert RecordingStudio.capability_enabled?(:example, for: Probe::HostType)
-    assert_equal({ label: "probe", servings: 2 },
-                 RecordingStudio.capability_options(:example, for: Probe::HostType))
-    refute RecordingStudio.capability_enabled?(:example, for: Probe::OtherType)
-    assert_equal [Probe::HostType.name],
-                 RecordingStudio.configuration.enabled_recordable_types_for(:example)
+      assert RecordingStudio.capability_enabled?(:example, for: Probe::HostType)
+      assert_equal({ label: "probe", servings: 2 },
+                   RecordingStudio.capability_options(:example, for: Probe::HostType))
+      refute RecordingStudio.capability_enabled?(:example, for: Probe::OtherType)
+      assert_equal [Probe::HostType.name],
+                   RecordingStudio.configuration.enabled_recordable_types_for(:example)
+    end
   end
 
   def test_installing_the_example_does_not_enable_it_globally
-    assert RecordingStudio.registered_capabilities.key?(:example)
-    assert_equal "RecordingStudio::Capabilities::Example",
-                 RecordingStudio.registered_capabilities[:example][:source]
-    assert_empty RecordingStudio.configuration.enabled_recordable_types_for(:example)
+    with_isolated_capabilities do
+      assert RecordingStudio.registered_capabilities.key?(:example)
+      assert_equal "RecordingStudio::Capabilities::Example",
+                   RecordingStudio.registered_capabilities[:example][:source]
+      assert_empty RecordingStudio.configuration.enabled_recordable_types_for(:example)
+    end
+  end
+
+  private
+
+  def with_isolated_capabilities(&)
+    RecordingStudio.stub(:configuration, @isolated_configuration, &)
   end
 end

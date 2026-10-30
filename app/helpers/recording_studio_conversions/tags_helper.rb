@@ -23,8 +23,6 @@ module RecordingStudioConversions
 
     def tracking_mounted?
       respond_to?(:recording_studio_conversions) && recording_studio_conversions.respond_to?(:collection_path)
-    rescue StandardError
-      false
     end
   end
 end

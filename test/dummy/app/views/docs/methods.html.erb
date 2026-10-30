@@ -3,30 +3,53 @@
 <div class="flex w-full flex-col gap-6">
   <%= render FlatPack::PageTitle::Component.new(
     title: "Methods",
-    subtitle: "Document the public methods your addon exposes.",
+    subtitle: "The public conversion helpers a host calls.",
     variant: :h1
   ) %>
 
   <%= render FlatPack::SectionTitle::Component.new(
-    title: "Example method",
-    subtitle: "recordingstudio_addon.example_method",
+    title: "Record consent",
+    subtitle: "RecordingStudioConversions.record_consent!",
   ) %>
 
   <%= render FlatPack::CodeBlock::Component.new(
     language: :ruby,
     code: <<~'CODE'
-      # Explain what this method does before the example.
-      result = RecordingstudioAddon.example_method(
-        # Replace with the real arguments this method accepts.
-        input: "demo value"
+      RecordingStudioConversions.record_consent!(
+        visitor_id: visitor_id,
+        category: "advertising",
+        granted: true
       )
-
-      # Show what the method returns or what side effect it creates.
-      puts result
     CODE
   ) %>
 
-  <p class="text-sm text-(--body-muted-content-color)">
-    Provide one section title and codeblock for each method
-  </p>
+  <%= render FlatPack::SectionTitle::Component.new(
+    title: "Record the acquisition user",
+    subtitle: "RecordingStudioConversions.record_acquisition_user!",
+  ) %>
+
+  <%= render FlatPack::CodeBlock::Component.new(
+    language: :ruby,
+    code: <<~'CODE'
+      RecordingStudioConversions.record_acquisition_user!(
+        root_recording_id: workspace_root.id,
+        user_id: user.id
+      )
+    CODE
+  ) %>
+
+  <%= render FlatPack::SectionTitle::Component.new(
+    title: "Read attribution",
+    subtitle: "RecordingStudioConversions.attribution_for",
+  ) %>
+
+  <%= render FlatPack::CodeBlock::Component.new(
+    language: :ruby,
+    code: <<~'CODE'
+      result = RecordingStudioConversions.attribution_for(
+        root_recording_id: workspace_root.id
+      )
+      result.observations
+    CODE
+  ) %>
 </div>
