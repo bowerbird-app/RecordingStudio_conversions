@@ -5,6 +5,8 @@ module RecordingStudioConversions
     # Copies a parent adapter's declarations and lets a subclass override each
     # one once. A second declaration in the same class raises.
     module DeclarationInheritance
+      protected
+
       def copy_declarations_from(parent)
         copy_identity_from(parent)
         copy_contract_from(parent)
