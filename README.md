@@ -124,14 +124,6 @@ The dummy Workspace enables Accessible because that addon is bundled:
 RecordingStudio.enable_capability(:accessible, on: Workspace)
 ```
 
-The template also ships one example mixin that uses core 4.2.0's `include_for` factory:
-
-```ruby
-include RecordingStudio::Capabilities::Example.to(label: "dummy workspace")
-```
-
-`.to` wraps `RecordingStudio::Capabilities.include_for`. It does not add a fourth verb and it does not call `enable_capability` / `set_capability_options` itself. Folder and Page stay without the example mixin.
-
 Use core `RecordingStudio::Hooks` and `RecordingStudio::Services::BaseService`. Do not copy those classes into a new addon.
 
 ### FlatPack UI Components
@@ -312,7 +304,3 @@ The default attribution resolver reads the one acquisition user the host recorde
 | Devise          | latest  |
 
 The dummy Gemfile keeps `github:` sources so Bundler can fetch those gems. The gemspec still pins `recording_studio` to `~> 4.2` so copied addons declare the core dependency even when GitHub is the fetch source.
-
-## Documentation
-
-The original gem template documentation is preserved in `docs/gem_template/` as architectural reference material. Use it as background on the engine conventions; this README and the dummy app are the source of truth for the Recording Studio addon workflow.
