@@ -25,8 +25,6 @@ module RecordingStudioConversions
       existing
     end
 
-    private
-
     def recover(change, error = nil)
       existing = Occurrence.find_by(rule_key: change.rule.key, source_event_id: change.envelope.source_event_id)
       return mark_already_recorded(existing) if existing && first_occurrence_conflict?(error)
@@ -36,6 +34,8 @@ module RecordingStudioConversions
         Occurrence.create!(attributes(change.with(outcome: "suppressed", reason: "already_recorded")))
       end
     end
+
+    private
 
     def first_occurrence_conflict?(error)
       error&.message.to_s.include?("idx_rs_conversions_first_occurrence_root")

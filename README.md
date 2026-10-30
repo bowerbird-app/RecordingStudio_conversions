@@ -303,6 +303,11 @@ The default attribution resolver reads the one acquisition user the host recorde
 | Accessible      | dummy GitHub tag `v0.18.0` |
 | Trashable       | dummy GitHub tag `v0.11.0` (`require: false`; query-only via Accessible) |
 | Root Switchable | dummy GitHub tag `v0.9.0` |
+| Cache           | dummy GitHub tag `v0.5.0` |
+| Metrics         | dummy GitHub tag `v0.2.0` |
+| Views           | dummy GitHub tag `v0.3.0` |
+| Logs            | dummy GitHub tag `v0.4.0` |
+| Stripe          | dummy GitHub tag `v0.13.0` (`require: false`) |
 | FlatPack        | dummy GitHub tag `v0.1.196` |
 | Devise          | latest  |
 

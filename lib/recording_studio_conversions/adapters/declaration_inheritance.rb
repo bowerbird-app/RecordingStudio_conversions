@@ -5,15 +5,15 @@ module RecordingStudioConversions
     # Copies a parent adapter's declarations and lets a subclass override each
     # one once. A second declaration in the same class raises.
     module DeclarationInheritance
-      private
-
       def copy_declarations_from(parent)
         copy_identity_from(parent)
         copy_contract_from(parent)
       end
 
+      private
+
       def copy_identity_from(parent)
-        @key = parent.instance_variable_get(:@key)
+        @key = parent.key
         @key_from_parent = !@key.nil?
         copy_parent_contract(parent)
       end
@@ -24,24 +24,24 @@ module RecordingStudioConversions
       end
 
       def copy_parent_consent(parent)
-        @consent = parent.instance_variable_get(:@consent)
+        @consent = parent.consent
         @consent_from_parent = !@consent.nil?
-        channels = parent.instance_variable_get(:@delivery_channels)
+        channels = parent.declared_delivery_channels
         @delivery_channels = channels&.dup&.freeze
         @channels_from_parent = !@delivery_channels.nil?
       end
 
       def copy_parent_limits(parent)
-        @max_event_age = parent.instance_variable_get(:@max_event_age)
+        @max_event_age = parent.max_event_age
         @age_from_parent = !@max_event_age.nil?
-        @browser_module_name = parent.instance_variable_get(:@browser_module_name)
+        @browser_module_name = parent.browser_module
         @browser_module_from_parent = !@browser_module_name.nil?
       end
 
       def copy_contract_from(parent)
-        @attribution_fields = parent.instance_variable_get(:@attribution_fields).dup
-        @identity_fields = parent.instance_variable_get(:@identity_fields).dup
-        @event_names = parent.instance_variable_get(:@event_names).dup
+        @attribution_fields = parent.attribution_fields.dup
+        @identity_fields = parent.identity_fields.dup
+        @event_names = parent.conversion_events.dup
       end
 
       def assign_consent(category, collection, delivery)

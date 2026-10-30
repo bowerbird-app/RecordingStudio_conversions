@@ -30,6 +30,8 @@ require "recording_studio_conversions/processor"
 
 module RecordingStudioConversions
   class << self
+    attr_writer :configuration
+
     def configuration
       @configuration ||= Configuration.new
     end

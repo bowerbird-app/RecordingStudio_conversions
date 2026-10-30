@@ -106,7 +106,7 @@ module RecordingStudioConversions
       return if identifier.blank?
 
       Digest::SHA256.hexdigest(identifier.to_s)
-    rescue StandardError
+    rescue TypeError, ArgumentError, ActionDispatch::Request::Session::DisabledSessionError
       nil
     end
 

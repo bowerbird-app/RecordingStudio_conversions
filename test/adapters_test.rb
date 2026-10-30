@@ -19,7 +19,7 @@ class AdaptersTest < Minitest::Test
   def teardown
     return unless @restore_configuration_set
 
-    RecordingStudioConversions.instance_variable_set(:@configuration, @restore_configuration)
+    RecordingStudioConversions.configuration = @restore_configuration
   end
 
   def test_registry_enables_only_destinations
@@ -553,7 +553,9 @@ class AdaptersTest < Minitest::Test
   end
 
   def remove_host_adapter(name)
-    Object.send(:remove_const, name) if Object.const_defined?(name)
+    return unless Object.const_defined?(name, false)
+
+    Object.class_eval { remove_const(name) }
   end
 
   def write_adapter(dir, file_name, key)
@@ -604,9 +606,9 @@ class AdaptersTest < Minitest::Test
 
   def swapped_configuration
     configuration = RecordingStudioConversions::Configuration.new
-    @restore_configuration = RecordingStudioConversions.instance_variable_get(:@configuration)
+    @restore_configuration = RecordingStudioConversions.configuration
     @restore_configuration_set = true
-    RecordingStudioConversions.instance_variable_set(:@configuration, configuration)
+    RecordingStudioConversions.configuration = configuration
     configuration
   end
 

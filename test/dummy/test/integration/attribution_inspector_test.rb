@@ -20,7 +20,8 @@ class AttributionInspectorTest < ActionDispatch::IntegrationTest
   test "grant revoke acquisition and delete submit through forms" do
     user = confirmed_user
     sign_in user
-    Workspace.create!(name: "Inspector buttons #{SecureRandom.hex(4)}")
+    workspace = Workspace.create!(name: "Inspector buttons #{SecureRandom.hex(4)}")
+    grant_workspace_access!(user, workspace)
     get attribution_inspector_path
 
     assert_response :success
@@ -85,7 +86,7 @@ class AttributionInspectorTest < ActionDispatch::IntegrationTest
     get attribution_inspector_path
     visitor_id = RecordingStudioConversions::IdentityLink.find_by!(user_id: first.id).visitor_id
     workspace = Workspace.create!(name: "Inspector #{SecureRandom.hex(4)}")
-    root = RecordingStudio.root_recording_for(workspace)
+    root = grant_workspace_access!(second, workspace)
     RecordingStudioConversions.record_consent!(
       visitor_id: visitor_id, category: "advertising", granted: true, user_id: second.id
     )

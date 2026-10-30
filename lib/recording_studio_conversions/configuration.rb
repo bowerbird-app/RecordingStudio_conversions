@@ -71,7 +71,7 @@ module RecordingStudioConversions
       {
         raise_errors: raise_errors,
         user_class_name: user_class_name,
-        hooks_registered: hooks.instance_variable_get(:@registry).transform_values(&:size),
+        hooks_registered: hooks.registered_counts,
         adapters: adapters.keys,
         destinations: destinations.map(&:key)
       }

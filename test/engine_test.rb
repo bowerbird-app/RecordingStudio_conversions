@@ -1,16 +1,18 @@
 # frozen_string_literal: true
 
 require "test_helper"
+require "active_record"
+require "action_controller"
 
 class EngineTest < Minitest::Test
   def setup
-    @original_configuration = RecordingStudioConversions.instance_variable_get(:@configuration)
-    RecordingStudioConversions.instance_variable_set(:@configuration, RecordingStudioConversions::Configuration.new)
+    @original_configuration = RecordingStudioConversions.configuration
+    RecordingStudioConversions.configuration = RecordingStudioConversions::Configuration.new
   end
 
   def teardown
     RecordingStudioConversions.configuration.hooks.clear!
-    RecordingStudioConversions.instance_variable_set(:@configuration, @original_configuration)
+    RecordingStudioConversions.configuration = @original_configuration
   end
 
   def test_before_and_after_initialize_initializers_run_hooks
@@ -63,7 +65,7 @@ class EngineTest < Minitest::Test
 
     app = Struct.new(:config) do
       def config_for(_name)
-        raise "missing file"
+        raise "Could not load configuration. No such file - recording_studio_conversions.yml"
       end
     end.new(app_config)
 
@@ -72,7 +74,7 @@ class EngineTest < Minitest::Test
     assert_equal "Account", RecordingStudioConversions.configuration.user_class_name
   end
 
-  def test_load_config_swallow_each_pair_errors
+  def test_load_config_raises_each_pair_errors
     bad_pair_config = Class.new do
       def each_pair
         raise "bad pair"
@@ -87,9 +89,10 @@ class EngineTest < Minitest::Test
       end
     end.new(app_config)
 
-    # Should not raise even if xcfg.each_pair fails.
-    find_initializer("recording_studio_conversions.load_config").block.call(app)
-
+    error = assert_raises(RuntimeError) do
+      find_initializer("recording_studio_conversions.load_config").block.call(app)
+    end
+    assert_equal "bad pair", error.message
     assert_equal "Account", RecordingStudioConversions.configuration.user_class_name
   end
 
@@ -103,11 +106,7 @@ class EngineTest < Minitest::Test
   end
 
   def test_load_config_ignores_non_enumerable_yaml_and_merge_errors
-    yaml = Class.new do
-      def each
-        raise "bad yaml"
-      end
-    end.new
+    yaml = Object.new
 
     xcfg = Struct.new(:recording_studio_conversions).new({ raise_errors: true })
     app_config = Struct.new(:x).new(xcfg)
@@ -158,15 +157,13 @@ class EngineTest < Minitest::Test
       end
     end
     applied = []
-    active_record_base = Class.new
-    active_record_base.define_singleton_method(:descendants) { [abstract_model, concrete_model] }
 
     RecordingStudioConversions::Engine.stub(:config, config_stub) do
       find_initializer("recording_studio_conversions.apply_model_extensions").block.call
     end
 
-    with_temporary_nested_constant(:ActiveRecord, :Base, active_record_base) do
-      RecordingStudioConversions::Engine.stub(:apply_model_extensions, ->(model) { applied << model }) do
+    RecordingStudioConversions::Engine.stub(:apply_model_extensions, ->(model) { applied << model }) do
+      ActiveRecord::Base.stub(:descendants, [abstract_model, concrete_model]) do
         to_prepare_blocks.first.call
       end
     end
@@ -184,15 +181,13 @@ class EngineTest < Minitest::Test
     first_controller = Class.new
     second_controller = Class.new
     applied = []
-    action_controller_base = Class.new
-    action_controller_base.define_singleton_method(:descendants) { [first_controller, second_controller] }
 
     RecordingStudioConversions::Engine.stub(:config, config_stub) do
       find_initializer("recording_studio_conversions.apply_controller_extensions").block.call
     end
 
-    with_temporary_nested_constant(:ActionController, :Base, action_controller_base) do
-      RecordingStudioConversions::Engine.stub(:apply_controller_extensions, ->(controller) { applied << controller }) do
+    RecordingStudioConversions::Engine.stub(:apply_controller_extensions, ->(controller) { applied << controller }) do
+      ActionController::Base.stub(:descendants, [first_controller, second_controller]) do
         to_prepare_blocks.first.call
       end
     end
@@ -247,7 +242,7 @@ class EngineTest < Minitest::Test
       end
     end
 
-    RecordingStudioConversions::Engine.send(:apply_extensions, target, [nil, [extension, extension]])
+    RecordingStudioConversions::Engine.apply_extensions(target, [nil, [extension, extension]])
 
     assert_equal :generated, target.new.generated_method
     applied = target.instance_variable_get(:@recording_studio_conversions_applied_extensions)
@@ -255,7 +250,7 @@ class EngineTest < Minitest::Test
   end
 
   def test_apply_extensions_returns_without_target
-    assert_nil RecordingStudioConversions::Engine.send(:apply_extensions, nil, [])
+    assert_nil RecordingStudioConversions::Engine.apply_extensions(nil, [])
   end
 
   def test_extension_keys_for_includes_demodulized_name
@@ -268,7 +263,7 @@ class EngineTest < Minitest::Test
     expected_keys = [:"Admin::ReportsController"]
     expected_keys << :ReportsController
 
-    assert_equal expected_keys, RecordingStudioConversions::Engine.send(:extension_keys_for, namespaced)
+    assert_equal expected_keys, RecordingStudioConversions::Engine.extension_keys_for(namespaced)
   end
 
   def test_extension_keys_for_removes_duplicate_names
@@ -278,24 +273,10 @@ class EngineTest < Minitest::Test
       end
     end
 
-    assert_equal [:ReportsController], RecordingStudioConversions::Engine.send(:extension_keys_for, plain)
+    assert_equal [:ReportsController], RecordingStudioConversions::Engine.extension_keys_for(plain)
   end
 
   private
-
-  def with_temporary_nested_constant(parent_name, child_name, value)
-    parent_defined = Object.const_defined?(parent_name, false)
-    parent = parent_defined ? Object.const_get(parent_name) : Object.const_set(parent_name, Module.new)
-    child_defined = parent.const_defined?(child_name, false)
-    previous_child = parent.const_get(child_name) if child_defined
-
-    parent.const_set(child_name, value)
-    yield
-  ensure
-    parent.send(:remove_const, child_name) if parent.const_defined?(child_name, false)
-    parent.const_set(child_name, previous_child) if child_defined
-    Object.send(:remove_const, parent_name) unless parent_defined
-  end
 
   def find_initializer(name)
     RecordingStudioConversions::Engine.initializers.find { |initializer| initializer.name == name }

@@ -8,14 +8,28 @@
   ) %>
 
   <%= render FlatPack::SectionTitle::Component.new(
-    title: "Step 1",
-    subtitle: "Provide one section title for each step",
+    title: "Add the gem",
+    subtitle: "Pin Recording Studio from GitHub, then this addon.",
+  ) %>
+
+  <%= render FlatPack::CodeBlock::Component.new(
+    language: :ruby,
+    code: <<~CODE
+      gem "recording_studio_conversions", github: "bowerbird-app/RecordingStudio_conversions"
+    CODE
+  ) %>
+
+  <%= render FlatPack::SectionTitle::Component.new(
+    title: "Mount and migrate",
+    subtitle: "Generators copy the initializer and tables into the host.",
   ) %>
 
   <%= render FlatPack::CodeBlock::Component.new(
     language: :bash,
     code: <<~CODE
-      # Put the step instruction here.
+      bin/rails generate recording_studio_conversions:install
+      bin/rails generate recording_studio_conversions:migrations
+      bin/rails db:migrate
     CODE
   ) %>
 </div>

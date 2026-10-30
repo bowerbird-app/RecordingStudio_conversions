@@ -19,11 +19,11 @@ module RecordingStudioConversions
       class << self
         def inherited(subclass)
           super
-          subclass.send(:copy_declarations_from, self)
+          subclass.copy_declarations_from(self)
         end
       end
 
-      send(:prepare_declarations)
+      prepare_declarations
     end
   end
 end

@@ -26,9 +26,10 @@ class DocsControllerTest < ActionDispatch::IntegrationTest
     get docs_install_path
     assert_response :success
     assert_select "h1", text: "Install"
-    assert_includes response.body, "Step 1"
-    assert_includes response.body, "Provide one section title for each step"
-    assert_includes response.body, "# Put the step instruction here."
+    assert_includes response.body, "Add the gem"
+    assert_includes response.body, "Mount and migrate"
+    assert_includes response.body, "recording_studio_conversions:install"
+    assert_includes response.body, "recording_studio_conversions:migrations"
   end
 
   test "config page renders successfully" do
@@ -107,11 +108,12 @@ class DocsControllerTest < ActionDispatch::IntegrationTest
     get docs_methods_path
     assert_response :success
     assert_select "h1", text: "Methods"
-    assert_includes response.body, "Document the public methods your addon exposes."
-    assert_includes response.body, "Example method"
-    assert_includes response.body, "recordingstudio_addon.example_method"
-    assert_includes response.body, "# Explain what this method does before the example."
-    assert_includes response.body, "Provide one section title and codeblock for each method"
+    assert_includes response.body, "The public conversion helpers a host calls."
+    assert_includes response.body, "Record consent"
+    assert_includes response.body, "RecordingStudioConversions.record_consent!"
+    assert_includes response.body, "RecordingStudioConversions.record_acquisition_user!"
+    assert_includes response.body, "RecordingStudioConversions.attribution_for"
+    refute_includes response.body, "recordingstudio_addon.example_method"
   end
 
   test "authenticated docs pages use the recording studio default layout" do

@@ -41,7 +41,10 @@ module RecordingStudioConversions
       value = decrypt_cookie(request, name).presence
       remember(value)
       value
-    rescue StandardError
+    rescue ActiveSupport::MessageEncryptor::InvalidMessage,
+           ActiveSupport::MessageVerifier::InvalidSignature,
+           JSON::ParserError,
+           ArgumentError
       nil
     end
 

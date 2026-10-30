@@ -17,7 +17,7 @@ module RecordingStudioConversions
       value = ::RecordingStudio.configuration.actor
       value = invoke(value, controller) if value.respond_to?(:call)
       actor(value)
-    rescue StandardError => e
+    rescue ArgumentError, TypeError => e
       log_resolver_error(e)
       nil
     end
@@ -34,6 +34,10 @@ module RecordingStudioConversions
 
     def call_arity(resolver)
       resolver.respond_to?(:arity) ? resolver.arity : resolver.method(:call).arity
+    end
+
+    def reset_resolver_error_log!
+      @resolver_error_logged = false
     end
 
     def log_resolver_error(exception)

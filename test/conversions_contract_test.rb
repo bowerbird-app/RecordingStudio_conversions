@@ -4,14 +4,14 @@ require "test_helper"
 
 class ConversionsContractTest < Minitest::Test
   def setup
-    @previous = RecordingStudioConversions.instance_variable_get(:@configuration)
+    @previous = RecordingStudioConversions.configuration
     @configuration = RecordingStudioConversions::Configuration.new
     @configuration.user_class_name = "User"
-    RecordingStudioConversions.instance_variable_set(:@configuration, @configuration)
+    RecordingStudioConversions.configuration = @configuration
   end
 
   def teardown
-    RecordingStudioConversions.instance_variable_set(:@configuration, @previous)
+    RecordingStudioConversions.configuration = @previous
   end
 
   def test_subscriptions_use_producer_names_and_id_keys
@@ -90,6 +90,30 @@ class ConversionsContractTest < Minitest::Test
     assert_equal "device-from-root-switchable", RecordingStudioConversions::VisitorId.resolve({})
   ensure
     RecordingStudio::RootSwitchable::Current.reset if defined?(RecordingStudio::RootSwitchable::Current)
+  end
+
+  def test_from_request_returns_nil_for_invalid_encrypted_cookies
+    request = Object.new
+    visitor_id = RecordingStudioConversions::VisitorId
+
+    visitor_id.stub(:current, nil) do
+      visitor_id.stub(:cookie_name, "device") do
+        visitor_id.stub(:decrypt_cookie, ->(*) { raise ActiveSupport::MessageEncryptor::InvalidMessage }) do
+          assert_nil visitor_id.from_request(request)
+        end
+      end
+    end
+  end
+
+  def test_session_digest_returns_nil_when_sessions_are_disabled
+    request = Object.new
+    session = Object.new
+    session.define_singleton_method(:id) do
+      raise ActionDispatch::Request::Session::DisabledSessionError, "sessions disabled"
+    end
+    request.define_singleton_method(:session) { session }
+
+    assert_nil RecordingStudioConversions::AttributionStore.session_digest(request)
   end
 
   def test_registration_source_id_is_the_user_id

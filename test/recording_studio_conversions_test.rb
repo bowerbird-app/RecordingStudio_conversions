@@ -4,7 +4,7 @@ require "test_helper"
 
 class RecordingStudioConversionsTest < Minitest::Test
   def test_version_matches_release
-    assert_equal "0.4.0", ::RecordingStudioConversions::VERSION
+    assert_equal "0.4.1", ::RecordingStudioConversions::VERSION
   end
 
   def test_engine_exists
@@ -39,7 +39,7 @@ class RecordingStudioConversionsTest < Minitest::Test
     path = File.expand_path("../.cursor/environment.json", __dir__)
     json = JSON.parse(File.read(path))
 
-    assert_equal "recording-studio-gem-template", json["name"]
+    assert_equal "recording-studio-conversions", json["name"]
     assert_equal ".cursor/install.sh", json["install"]
     assert_equal ".cursor/start.sh", json["start"]
     refute json.key?("snapshot"), "snapshot pins a Personal build and skips install"
@@ -66,7 +66,6 @@ class RecordingStudioConversionsTest < Minitest::Test
     refute_includes gemfile, 'tag: "v0.10.1"'
     assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_root_switchable", tag: "v0.9.0"'
     assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_cache", tag: "v0.5.0"'
-    refute_includes gemfile, 'tag: "v0.6.0"'
     refute_includes gemfile, 'tag: "v0.5.1"'
     assert_includes gemfile, 'github: "bowerbird-app/flatpack", tag: "v0.1.196"'
     assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_stripe", tag: "v0.13.0", require: false'
@@ -231,8 +230,8 @@ class RecordingStudioConversionsTest < Minitest::Test
     refute_includes readme, "dummy GitHub tag `v0.15.0`"
     refute_includes readme, "dummy GitHub tag `v0.10.1`"
     assert_includes readme, "dummy GitHub tag `v0.9.0`"
+    assert_includes readme, "dummy GitHub tag `v0.5.0`"
     refute_includes readme, "dummy GitHub tag `v0.8.0`"
-    refute_includes readme, "dummy GitHub tag `v0.6.0`"
     refute_includes readme, "dummy GitHub tag `v0.5.1`"
     refute_includes readme, "dummy GitHub tag `v4.4.0`"
     refute_includes readme, "dummy GitHub tag `v4.3.0`"
@@ -252,8 +251,11 @@ class RecordingStudioConversionsTest < Minitest::Test
     view_path = File.expand_path("dummy/app/views/home/index.html.erb", __dir__)
     view_source = File.read(view_path)
 
-    assert_includes view_source, 'title: "Template Demo"'
-    assert_includes view_source, 'subtitle: "This dummy app is the browser-facing demo surface for the template."'
+    assert_includes view_source, 'title: "Conversions demo"'
+    assert_includes view_source, 'subtitle: "Try collection, consent, and attribution in a real host app."'
+    assert_includes view_source, "recording_studio_conversions:install"
+    assert_includes view_source, "recording_studio_conversions:migrations"
+    refute_includes view_source, "gem_template:install"
     assert_includes view_source, "FlatPack::Card::Component"
     assert_includes view_source, "dummy_page_nav"
     refute_includes view_source, 'title: "Demo"'
@@ -278,6 +280,8 @@ class RecordingStudioConversionsTest < Minitest::Test
     methods_view = File.read(File.expand_path("dummy/app/views/docs/methods.html.erb", __dir__))
     assert_includes methods_view, "FlatPack::SectionTitle::Component"
     assert_includes methods_view, "FlatPack::CodeBlock::Component"
+    assert_includes methods_view, "RecordingStudioConversions.record_consent!"
+    refute_includes methods_view, "recordingstudio_addon.example_method"
 
     gem_views_view = File.read(File.expand_path("dummy/app/views/docs/gem_views.html.erb", __dir__))
     assert_includes gem_views_view, "FlatPack::Table::Component"

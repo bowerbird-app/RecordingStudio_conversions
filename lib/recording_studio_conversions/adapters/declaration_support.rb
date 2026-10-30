@@ -6,12 +6,12 @@ module RecordingStudioConversions
     module DeclarationSupport
       include DeclarationInheritance
 
-      private
-
       def prepare_declarations
         prepare_identity
         prepare_fields
       end
+
+      private
 
       def prepare_identity
         @key = nil

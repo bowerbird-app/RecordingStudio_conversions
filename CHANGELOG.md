@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-10-30
+
+### Changed
+- Narrowed config, cookie, session, and actor-resolver rescues to the errors those paths actually raise. Adapter subclasses copy declarations through public readers. Dummy workspace switching uses Accessible grants. Install and methods dummy docs show this gem’s public API.
+
+### Upgrade notes
+- YAML load no longer swallows arbitrary errors. A missing `config/recording_studio_conversions.yml` is skipped; invalid YAML still fails closed. Host actor lambdas that raise anything other than `ArgumentError` or `TypeError` now propagate.
+
 ## [0.4.0] - 2026-10-21
 
 ### Added
@@ -147,7 +155,8 @@ New addons copied from this template are born on Recording Studio 4.x.
 - Comprehensive README and documentation
 - Basic test suite with Minitest
 
-[Unreleased]: https://github.com/bowerbird-app/RecordingStudio_conversions/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/bowerbird-app/RecordingStudio_conversions/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/bowerbird-app/RecordingStudio_conversions/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/bowerbird-app/RecordingStudio_conversions/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/bowerbird-app/RecordingStudio_conversions/compare/v0.2.3...v0.3.0
 [0.2.3]: https://github.com/bowerbird-app/RecordingStudio_conversions/releases/tag/v0.2.3
