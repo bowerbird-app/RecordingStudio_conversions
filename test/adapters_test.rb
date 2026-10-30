@@ -8,6 +8,9 @@ require "tmpdir"
 require "zeitwerk"
 require_relative "support/fake_adapter"
 
+module AdaptersTestHost
+end
+
 class AdaptersTest < Minitest::Test
   def setup
     @configuration = RecordingStudioConversions::Configuration.new
@@ -377,11 +380,11 @@ class AdaptersTest < Minitest::Test
     loader = Zeitwerk::Loader.new
     FileUtils.mkdir_p(app_root)
     write_adapter(app_root, "app_host_adapter", :app_host)
-    loader.push_dir(app_root)
+    loader.push_dir(app_root, namespace: AdaptersTestHost)
     loader.setup
     Rails.application = Struct.new(:autoloaders).new(Struct.new(:main).new(loader))
 
-    adapter = AppHostAdapter
+    adapter = AdaptersTestHost::AppHostAdapter
     refute loader.reloading_enabled?
     refute loader.unloadable_cpath?(adapter.name)
     configuration = RecordingStudioConversions::Configuration.new
@@ -391,7 +394,6 @@ class AdaptersTest < Minitest::Test
   ensure
     Rails.application = previous if defined?(previous)
     loader&.unregister
-    remove_host_adapter(:AppHostAdapter)
     FileUtils.rm_rf(root) if defined?(root) && root
   end
 
@@ -400,22 +402,21 @@ class AdaptersTest < Minitest::Test
     loader = Zeitwerk::Loader.new
     previous = Rails.application
     write_adapter(root, "managed_lib_adapter", :managed_lib)
-    loader.push_dir(root)
+    loader.push_dir(root, namespace: AdaptersTestHost)
     loader.enable_reloading
     require File.join(root, "managed_lib_adapter.rb")
     loader.setup
     Rails.application = Struct.new(:autoloaders).new(Struct.new(:main).new(loader))
 
-    refute loader.unloadable_cpath?(ManagedLibAdapter.name)
-    @configuration.register_adapter :managed_lib, ManagedLibAdapter
+    refute loader.unloadable_cpath?(AdaptersTestHost::ManagedLibAdapter.name)
+    @configuration.register_adapter :managed_lib, AdaptersTestHost::ManagedLibAdapter
     loader.reload
-    assert Object.const_defined?(:ManagedLibAdapter)
-    assert_equal ManagedLibAdapter, @configuration.adapters.fetch(:managed_lib)
-    refute loader.unloadable_cpath?(ManagedLibAdapter.name)
+    assert AdaptersTestHost.const_defined?(:ManagedLibAdapter, false)
+    assert_equal AdaptersTestHost::ManagedLibAdapter, @configuration.adapters.fetch(:managed_lib)
+    refute loader.unloadable_cpath?(AdaptersTestHost::ManagedLibAdapter.name)
   ensure
     Rails.application = previous if defined?(previous)
     teardown_loader(loader)
-    remove_host_adapter(:ManagedLibAdapter)
     FileUtils.rm_rf(root) if defined?(root) && root
   end
 
@@ -516,22 +517,20 @@ class AdaptersTest < Minitest::Test
   ensure
     Rails.application = previous if defined?(previous)
     teardown_loader(loader)
-    remove_host_adapter(:ReloadableHostAdapter)
-    remove_host_adapter(:StableHostAdapter)
     FileUtils.rm_rf(root) if defined?(root) && root
     FileUtils.rm_rf(stable_root) if defined?(stable_root) && stable_root
   end
 
   def install_main_loader(loader, root)
     write_adapter(root, "reloadable_host_adapter", :reloadable_host)
-    loader.push_dir(root)
+    loader.push_dir(root, namespace: AdaptersTestHost)
     loader.enable_reloading
     loader.setup
     Rails.application = Struct.new(:autoloaders).new(Struct.new(:main).new(loader))
   end
 
   def assert_reloadable_adapter_rejected(loader)
-    adapter = ReloadableHostAdapter
+    adapter = AdaptersTestHost::ReloadableHostAdapter
     assert loader.unloadable_cpath?(adapter.name)
     error = assert_raises(ArgumentError) { @configuration.register_adapter :reloadable_host, adapter }
     assert_match(/reloadable/, error.message)
@@ -540,8 +539,8 @@ class AdaptersTest < Minitest::Test
   def assert_required_adapter_accepted(loader, stable_root)
     write_adapter(stable_root, "stable_host_adapter", :stable_host)
     require File.join(stable_root, "stable_host_adapter.rb")
-    refute loader.unloadable_cpath?(StableHostAdapter.name)
-    @configuration.register_adapter :stable_host, StableHostAdapter
+    refute loader.unloadable_cpath?(AdaptersTestHost::StableHostAdapter.name)
+    @configuration.register_adapter :stable_host, AdaptersTestHost::StableHostAdapter
     assert @configuration.adapters.registered?(:stable_host)
   end
 
@@ -552,18 +551,14 @@ class AdaptersTest < Minitest::Test
     loader&.unregister
   end
 
-  def remove_host_adapter(name)
-    return unless Object.const_defined?(name, false)
-
-    Object.class_eval { remove_const(name) }
-  end
-
   def write_adapter(dir, file_name, key)
     File.write(File.join(dir, "#{file_name}.rb"), <<~RUBY)
-      class #{file_name.camelize} < RecordingStudioConversions::Adapters::Base
-        key :#{key}
-        consent category: :advertising
-        delivery_channels :server
+      module AdaptersTestHost
+        class #{file_name.camelize} < RecordingStudioConversions::Adapters::Base
+          key :#{key}
+          consent category: :advertising
+          delivery_channels :server
+        end
       end
     RUBY
   end
