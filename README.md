@@ -54,7 +54,7 @@ The login form is prefilled with these credentials for fast access.
 - `/` — dummy app home page
 - `/users/sign_in` — Devise sign-in page
 - `/recording_studio` — redirect to `/` while the mounted Recording Studio engine remains data/API-focused
-- `/docs/install`, `/docs/config`, `/docs/recordable_types`, `/docs/recordings_tree`, `/docs/gem_views`, `/docs/methods` — dummy-only starter pages. The recordings tree is the Workspace / Folder / Page outline. Accessible grant recordings stay off that page.
+- `/docs/install`, `/docs/config`, `/docs/recordable_types`, `/docs/recordings_tree`, `/docs/gem_views`, `/docs/methods` — dummy-only starter pages. The recordings tree includes Workspace, Folder, Page, and Accessible grant rows.
 
 The home page in `test/dummy/app/views/home/index.html.erb` is a starting point for a minimal demo of the gem's primary behavior. Keep deeper explanations on the dummy docs pages, not in this README.
 

@@ -17,10 +17,7 @@ class DocsController < ApplicationController
   end
 
   def recordings_tree
-    recordings = RecordingStudio::Recording.includes(:recordable)
-      .where(recordable_type: configured_recordable_type_names)
-      .reorder(:created_at, :id)
-      .to_a
+    recordings = RecordingStudio::Recording.includes(:recordable).reorder(:created_at, :id).to_a
     recordings_by_parent_id = recordings.group_by(&:parent_recording_id)
 
     @recording_tree = recordings_by_parent_id.fetch(nil, []).map do |recording|
@@ -40,12 +37,6 @@ class DocsController < ApplicationController
   end
 
   private
-
-  def configured_recordable_type_names
-    Array(RecordingStudio.configuration.recordable_types).map(&:to_s).reject do |type_name|
-      type_name.start_with?("RecordingStudio::Access")
-    end
-  end
 
   def normalize_recordable_declaration(declaration)
     {
