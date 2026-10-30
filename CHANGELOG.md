@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.4.1] - 2026-10-30
 
 ### Changed
-- Narrowed config, cookie, session, and actor-resolver rescues to the errors those paths actually raise. Adapter subclasses copy declarations through public readers. Dummy workspace switching uses Accessible grants. Install and methods dummy docs show this gem’s public API.
+- Narrowed config, cookie, session, and actor-resolver rescues to the errors those paths actually raise. Adapter subclasses copy declarations through public readers. Dummy workspace switching uses Accessible grants. Install and methods dummy docs show this gem’s public API. The dummy recordings tree lists Workspace, Folder, and Page recordings and omits Accessible grant rows (`RecordingStudio::Access*`). Accessible still registers those types on `config.recordable_types`.
 
 ### Upgrade notes
 - YAML load no longer swallows arbitrary errors. A missing `config/recording_studio_conversions.yml` is skipped; invalid YAML still fails closed. Host actor lambdas that raise anything other than `ArgumentError` or `TypeError` now propagate.
