@@ -7,10 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.5.1] - 2026-10-30
+## [0.6.0] - 2026-10-30
 
 ### Removed
-- Template leftovers: the Example capability, `docs/gem_template/`, and tracked `coverage/` output.
+- Breaking removal of the public `RecordingStudio::Capabilities::Example` mixin. This gem no longer registers `:example`. Template leftovers `docs/gem_template/` and tracked `coverage/` output are gone too.
 
 ### Upgrade notes
 - Drop `include RecordingStudio::Capabilities::Example.to(...)`. This gem no longer registers `:example`.
@@ -164,8 +164,8 @@ New addons copied from this template are born on Recording Studio 4.x.
 - Comprehensive README and documentation
 - Basic test suite with Minitest
 
-[Unreleased]: https://github.com/bowerbird-app/RecordingStudio_conversions/compare/v0.5.1...HEAD
-[0.5.1]: https://github.com/bowerbird-app/RecordingStudio_conversions/compare/v0.5.0...v0.5.1
+[Unreleased]: https://github.com/bowerbird-app/RecordingStudio_conversions/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/bowerbird-app/RecordingStudio_conversions/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/bowerbird-app/RecordingStudio_conversions/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/bowerbird-app/RecordingStudio_conversions/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/bowerbird-app/RecordingStudio_conversions/compare/v0.2.3...v0.3.0
