@@ -3,6 +3,7 @@
 require "test_helper"
 require "active_record"
 require "action_controller"
+require "tmpdir"
 
 class EngineTest < Minitest::Test
   def setup
@@ -94,6 +95,45 @@ class EngineTest < Minitest::Test
     end
     assert_equal "bad pair", error.message
     assert_equal "Account", RecordingStudioConversions.configuration.user_class_name
+  end
+
+  def test_load_yaml_config_skips_a_yaml_syntax_runtime_error
+    app = Object.new
+    app.define_singleton_method(:config_for) do |_name|
+      raise "YAML syntax error occurred while parsing recording_studio_conversions.yml"
+    end
+
+    RecordingStudioConversions::Engine.load_yaml_config(app)
+    assert_equal "User", RecordingStudioConversions.configuration.user_class_name
+  end
+
+  def test_load_yaml_config_reraises_an_unrelated_runtime_error
+    app = Object.new
+    app.define_singleton_method(:config_for) do |_name|
+      raise "queue adapter exploded"
+    end
+
+    error = assert_raises(RuntimeError) do
+      RecordingStudioConversions::Engine.load_yaml_config(app)
+    end
+    assert_equal "queue adapter exploded", error.message
+  end
+
+  def test_yaml_config_missing_when_the_file_is_absent
+    Dir.mktmpdir do |config_root|
+      queried = false
+      app = Object.new
+      config_path = Object.new
+      config_path.define_singleton_method(:existent) { [config_root] }
+      app.define_singleton_method(:paths) { { "config" => config_path } }
+      app.define_singleton_method(:config_for) do |_name|
+        queried = true
+        {}
+      end
+
+      RecordingStudioConversions::Engine.load_yaml_config(app)
+      refute queried
+    end
   end
 
   def test_load_config_is_noop_without_config_sources
