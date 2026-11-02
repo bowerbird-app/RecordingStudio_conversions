@@ -10,10 +10,12 @@
   <div class="grid gap-6 lg:grid-cols-2">
     <%= render FlatPack::Card::Component.new(style: :default) do |card| %>
       <% card.header do %>
-        <%= render FlatPack::PageTitle::Component.new(
+        <%= render FlatPack::SectionTitle::Component.new(
           title: "What's working",
           subtitle: "Core template capabilities already wired into the dummy app.",
-          variant: :h3,
+          size: :md,
+          spacing: :none,
+          level: :h3,
           class: "mb-0 pb-0"
         ) %>
       <% end %>
@@ -65,16 +67,13 @@
       <% end %>
 
       <% card.footer do %>
-        <a href="https://github.com/bowerbird-app/flatpack"
-           target="_blank"
-           rel="noopener noreferrer"
-           class="inline-flex">
-          <%= render FlatPack::Button::Component.new(
-            text: "View FlatPack documentation",
-            style: :primary,
-            size: :md
-          ) %>
-        </a>
+        <%= render FlatPack::Button::Component.new(
+          text: "View FlatPack documentation",
+          href: "https://github.com/bowerbird-app/flatpack",
+          target: "_blank",
+          style: :primary,
+          size: :md
+        ) %>
       <% end %>
     <% end %>
 
