@@ -4,7 +4,7 @@ require "test_helper"
 
 class RecordingStudioConversionsTest < Minitest::Test
   def test_version_matches_release
-    assert_equal "0.5.0", ::RecordingStudioConversions::VERSION
+    assert_equal "0.6.0", ::RecordingStudioConversions::VERSION
   end
 
   def test_engine_exists
@@ -134,18 +134,8 @@ class RecordingStudioConversionsTest < Minitest::Test
     refute File.exist?(File.expand_path("../lib/recording_studio_conversions/hooks.rb", __dir__))
     refute File.exist?(File.expand_path("../lib/recording_studio_conversions/services/base_service.rb", __dir__))
     refute File.exist?(File.expand_path("../lib/recording_studio_conversions/services/example_service.rb", __dir__))
-  end
-
-  def test_example_capability_wraps_include_for_and_is_not_enabled_globally
-    source = File.read(File.expand_path("../lib/recording_studio_conversions/capabilities/example.rb", __dir__))
-
-    assert_includes source, "def self.to(**)"
-    assert_includes source, "RecordingStudio::Capabilities.include_for(:example, **)"
-    refute_includes source, "enable_capability"
-    refute_includes source, "set_capability_options"
-    refute RecordingStudio.capability_enabled?(:example, for: "Folder")
-    refute RecordingStudio.capability_enabled?(:example, for: "Page")
-    assert_empty RecordingStudio.configuration.enabled_recordable_types_for(:example)
+    refute File.exist?(File.expand_path("../lib/recording_studio_conversions/capabilities/example.rb", __dir__))
+    refute File.directory?(File.expand_path("../docs/gem_template", __dir__))
   end
 
   def test_dummy_app_uses_recording_studio_default_layout

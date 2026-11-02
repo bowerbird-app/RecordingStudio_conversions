@@ -51,6 +51,7 @@ test/dummy/config/credentials/*.key
 # Build artifacts
 *.gem
 pkg/
+coverage/
 
 # Rename script state
 .rename_state.yml
