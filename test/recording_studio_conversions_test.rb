@@ -23,6 +23,8 @@ class RecordingStudioConversionsTest < Minitest::Test
   def test_root_gemfile_pins_stripe_v0_13_without_loading_it
     gemfile = File.read(File.expand_path("../Gemfile", __dir__))
 
+    assert_includes gemfile, 'github: "bowerbird-app/flatpack", tag: "v0.1.213", require: false'
+    refute_includes gemfile, 'tag: "v0.1.196"'
     assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_stripe", tag: "v0.13.0", require: false'
     refute_includes gemfile, "recording_studio_attachable"
     refute_includes gemfile, "recording_studio_library"
@@ -68,7 +70,8 @@ class RecordingStudioConversionsTest < Minitest::Test
     assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_cache", tag: "v0.5.0"'
     refute_includes gemfile, 'tag: "v0.6.0"'
     refute_includes gemfile, 'tag: "v0.5.1"'
-    assert_includes gemfile, 'github: "bowerbird-app/flatpack", tag: "v0.1.196"'
+    assert_includes gemfile, 'github: "bowerbird-app/flatpack", tag: "v0.1.213"'
+    refute_includes gemfile, 'tag: "v0.1.196"'
     assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_stripe", tag: "v0.13.0", require: false'
     refute_includes gemfile, "recording_studio_attachable"
     refute_includes gemfile, "recording_studio_library"
@@ -211,9 +214,10 @@ class RecordingStudioConversionsTest < Minitest::Test
 
     assert_includes readme, "RecordingStudio"
     assert_includes readme, "dummy GitHub tag `v4.7.0`"
+    refute_includes readme, "dummy GitHub tag `v0.1.196`"
     refute_includes readme, "dummy GitHub tag `v4.6.0`"
     refute_includes readme, "dummy GitHub tag `v4.5.0`"
-    assert_includes readme, "dummy GitHub tag `v0.1.196`"
+    assert_includes readme, "dummy GitHub tag `v0.1.213`"
     assert_includes readme, "dummy GitHub tag `v0.18.0`"
     assert_includes readme, "dummy GitHub tag `v0.11.0`"
     refute_includes readme, "dummy GitHub tag `v0.10.0`"
@@ -250,6 +254,9 @@ class RecordingStudioConversionsTest < Minitest::Test
     refute_includes view_source, "gem_template:install"
     assert_includes view_source, "FlatPack::Card::Component"
     assert_includes view_source, "dummy_page_nav"
+    assert_includes view_source, "FlatPack::SectionTitle::Component"
+    assert_includes view_source, "href: \"https://github.com/bowerbird-app/flatpack\""
+    refute_includes view_source, "<a href=\"https://github.com/bowerbird-app/flatpack\""
     refute_includes view_source, 'title: "Demo"'
     refute_includes view_source, "FlatPack::Breadcrumb::Component"
   end
@@ -298,6 +305,22 @@ class RecordingStudioConversionsTest < Minitest::Test
     assert_includes recording_tree_partial, "parent_builder.node"
     refute_includes recordings_tree_view, "Current structure"
     refute_includes recordings_tree_view, "This tree is generated from RecordingStudio::Recording records"
+  end
+
+  def test_dummy_page_nav_buttons_use_href
+    helper = File.read(File.expand_path("dummy/app/helpers/application_helper.rb", __dir__))
+
+    assert_includes helper, "href: attribution_inspector_path"
+    assert_includes helper, "href: main_app.destroy_user_session_path"
+    refute_includes helper, "url: attribution_inspector_path"
+    refute_includes helper, "url: main_app.destroy_user_session_path"
+  end
+
+  def test_attribution_inspector_uses_section_title
+    view = File.read(File.expand_path("dummy/app/views/attribution_inspector/show.html.erb", __dir__))
+
+    assert_includes view, "FlatPack::SectionTitle::Component"
+    refute_includes view, '<h2 class="text-lg font-semibold">'
   end
 
   def test_engine_does_not_ship_a_home_view

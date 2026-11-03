@@ -25,6 +25,12 @@ class AttributionInspectorTest < ActionDispatch::IntegrationTest
     get attribution_inspector_path
 
     assert_response :success
+    assert_select "h2", text: "Consent"
+    assert_select "h2", text: "Resolution"
+    assert_select "h2", text: "Another confirmed user"
+    assert_select "h2", text: "Identity links"
+    assert_select "h2", text: "Consents"
+    assert_select "h2", text: "Observations"
     assert_select %(form[method="post"][action="/attribution/consent"] input[name="granted"][value="true"])
     assert_select %(form[method="post"][action="/attribution/consent"] input[name="category"][value="advertising"])
     assert_select %(form[method="post"][action="/attribution/consent"] button[type="submit"]), text: "Grant advertising"
@@ -44,7 +50,11 @@ class AttributionInspectorTest < ActionDispatch::IntegrationTest
     get root_path
 
     assert_response :success
-    assert_includes response.body, attribution_inspector_path
+    assert_select "a[href=?]", attribution_inspector_path, text: "Attribution"
+    assert_select "a[href=?]", destroy_user_session_path, text: "Sign out"
+    assert_select "a[href='https://github.com/bowerbird-app/flatpack'][target='_blank']",
+                  text: "View FlatPack documentation"
+    refute_includes response.body, "<button url="
   end
 
   test "grant and revoke are listed newest first with the device and user" do

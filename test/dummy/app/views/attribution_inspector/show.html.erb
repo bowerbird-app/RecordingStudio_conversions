@@ -21,7 +21,12 @@
   <% end %>
 
   <section class="flex flex-col gap-3">
-    <h2 class="text-lg font-semibold">Consent</h2>
+    <%= render FlatPack::SectionTitle::Component.new(
+      title: "Consent",
+      size: :md,
+      spacing: :none,
+      level: :h2
+    ) %>
     <% if @categories.empty? %>
       <p class="text-sm">No consent categories are configured.</p>
     <% else %>
@@ -53,7 +58,12 @@
   </section>
 
   <section class="flex flex-col gap-3">
-    <h2 class="text-lg font-semibold">Resolution</h2>
+    <%= render FlatPack::SectionTitle::Component.new(
+      title: "Resolution",
+      size: :md,
+      spacing: :none,
+      level: :h2
+    ) %>
     <% if @root %>
       <p class="text-sm">Selected root <code><%= @root.id %></code></p>
       <%= form_with url: attribution_acquisition_path, method: :post do %>
@@ -82,7 +92,12 @@
   </section>
 
   <section class="flex flex-col gap-3">
-    <h2 class="text-lg font-semibold">Another confirmed user</h2>
+    <%= render FlatPack::SectionTitle::Component.new(
+      title: "Another confirmed user",
+      size: :md,
+      spacing: :none,
+      level: :h2
+    ) %>
     <%= form_with url: attribution_users_path do %>
       <div class="flex flex-col gap-3">
         <%= render FlatPack::EmailInput::Component.new(
@@ -108,7 +123,12 @@
   </section>
 
   <section class="flex flex-col gap-3">
-    <h2 class="text-lg font-semibold">Identity links</h2>
+    <%= render FlatPack::SectionTitle::Component.new(
+      title: "Identity links",
+      size: :md,
+      spacing: :none,
+      level: :h2
+    ) %>
     <%= render FlatPack::Table::Component.new(data: @links, class: "text-sm", min_width: :lg) do |table| %>
       <% table.column(title: "Linked at") { |link| link.linked_at.utc.iso8601 } %>
       <% table.column(title: "User") { |link| @users[link.user_id.to_s]&.email || link.user_id } %>
@@ -119,7 +139,12 @@
   </section>
 
   <section class="flex flex-col gap-3">
-    <h2 class="text-lg font-semibold">Consents</h2>
+    <%= render FlatPack::SectionTitle::Component.new(
+      title: "Consents",
+      size: :md,
+      spacing: :none,
+      level: :h2
+    ) %>
     <%= render FlatPack::Table::Component.new(data: @consents, class: "text-sm", min_width: :lg) do |table| %>
       <% table.column(title: "Recorded at") { |row| row.recorded_at.utc.iso8601 } %>
       <% table.column(title: "User") { |row| @users[row.user_id.to_s]&.email || "anonymous" } %>
@@ -130,7 +155,12 @@
   </section>
 
   <section class="flex flex-col gap-3">
-    <h2 class="text-lg font-semibold">Observations</h2>
+    <%= render FlatPack::SectionTitle::Component.new(
+      title: "Observations",
+      size: :md,
+      spacing: :none,
+      level: :h2
+    ) %>
     <%= render FlatPack::Table::Component.new(data: @observations, class: "text-sm", min_width: :lg) do |table| %>
       <% table.column(title: "Captured at") { |row| row.captured_at.utc.iso8601 } %>
       <% table.column(title: "Device") { |row| row.visitor_id } %>

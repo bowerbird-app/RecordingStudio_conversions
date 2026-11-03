@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Dummy FlatPack pin is `v0.1.213`. Dummy page nav and the FlatPack docs button use Button `href:`. Attribution inspector headings and the home “What’s working” card title use SectionTitle (`size: :md`, `spacing: :none`).
+
 ## [0.6.0] - 2026-10-30
 
 ### Removed

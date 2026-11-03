@@ -13,7 +13,7 @@ gem "recording_studio_logs", github: "bowerbird-app/RecordingStudio_logs", tag: 
 # Stripe 0.13 is the contract for DomainEvent#instrument_payload. require: false
 # keeps that engine, and the migrations it appends, out of boot. The other pins
 # exist because Stripe's gemspec needs them and they are not published to RubyGems.
-gem "flat_pack", github: "bowerbird-app/flatpack", tag: "v0.1.196", require: false
+gem "flat_pack", github: "bowerbird-app/flatpack", tag: "v0.1.213", require: false
 gem "recording_studio_accessible", github: "bowerbird-app/RecordingStudio_accessible", tag: "v0.18.0", require: false
 gem "recording_studio_metrics", github: "bowerbird-app/RecordingStudio_metrics", tag: "v0.2.0", require: false
 gem "recording_studio_stripe", github: "bowerbird-app/RecordingStudio_stripe", tag: "v0.13.0", require: false

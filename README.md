@@ -300,7 +300,7 @@ The default attribution resolver reads the one acquisition user the host recorde
 | Views           | dummy GitHub tag `v0.3.0` |
 | Logs            | dummy GitHub tag `v0.4.0` |
 | Stripe          | dummy GitHub tag `v0.13.0` (`require: false`) |
-| FlatPack        | dummy GitHub tag `v0.1.196` |
+| FlatPack        | dummy GitHub tag `v0.1.213` |
 | Devise          | latest  |
 
 The dummy Gemfile keeps `github:` sources so Bundler can fetch those gems. The gemspec still pins `recording_studio` to `~> 4.2` so copied addons declare the core dependency even when GitHub is the fetch source.
