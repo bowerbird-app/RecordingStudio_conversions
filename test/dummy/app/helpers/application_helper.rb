@@ -1,10 +1,8 @@
 module ApplicationHelper
   def dummy_page_nav(title:, back_url: nil, back_label: "Home")
-    recording_studio_page_nav(
-      title: title,
-      page_nav_back_url: back_url,
-      page_nav_back_label: back_label
-    )
+    # The default layout paints content_for(:title) as a second page heading.
+    # These screens already render their heading, so title is intentionally unused here.
+    flat_pack_page_nav(round: true, style: :default, back_href: back_url, back_tooltip: back_label)
 
     recording_studio_page_nav_right do
       if Rails.env.local?

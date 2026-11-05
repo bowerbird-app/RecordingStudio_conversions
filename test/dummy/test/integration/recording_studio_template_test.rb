@@ -8,9 +8,13 @@ class RecordingStudioTemplateTest < ActiveSupport::TestCase
     assert_includes switchable, "RecordingStudioAccessible.authorized?"
     refute_includes switchable, "->(**) { true }"
     assert_equal [ "all_workspaces" ], RecordingStudioRootSwitchable.configuration.scopes.keys
-    assert_equal :application_layout, RecordingStudioRootSwitchable.configuration.layout
+    layout = RecordingStudioRootSwitchable.configuration.layout
+    host = Object.new
+    def host.devise_controller? = false
+    assert_respond_to layout, :call
+    assert_equal RecordingStudio::DEFAULT_LAYOUT, layout.call(controller: host)
     assert_includes ApplicationController.ancestors, RecordingStudio::RootSwitchable::ControllerSupport
-    assert_includes ApplicationController.ancestors, RecordingStudio::UsesDefaultLayout
+    refute_includes ApplicationController.ancestors, RecordingStudio::UsesDefaultLayout if defined?(RecordingStudio::UsesDefaultLayout)
   end
 
   test "dummy app validates recordable declarations" do
@@ -78,6 +82,6 @@ class RecordingStudioTemplateTest < ActiveSupport::TestCase
     refute RecordingStudio.capability_enabled?(:accessible, for: Folder)
     refute RecordingStudio.capability_enabled?(:accessible, for: Page)
     refute RecordingStudio.capability_enabled?(:example, for: Workspace)
-    assert_includes ApplicationController.ancestors, RecordingStudio::UsesDefaultLayout
+    refute_includes ApplicationController.ancestors, RecordingStudio::UsesDefaultLayout if defined?(RecordingStudio::UsesDefaultLayout)
   end
 end

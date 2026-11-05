@@ -12,7 +12,7 @@ module RecordingStudioConversions
 
     attr_accessor :raise_errors, :user_class_name, :excluded_subscription_statuses,
                   :attribution_subject_resolver, :collection_context
-    attr_reader :hooks, :subscriptions, :rules, :adapters, :collection_resolvers
+    attr_reader :hooks, :layout, :subscriptions, :rules, :adapters, :collection_resolvers
 
     def initialize
       assign_defaults
@@ -29,8 +29,13 @@ module RecordingStudioConversions
       @raise_errors = false
       @user_class_name = "User"
       @excluded_subscription_statuses = %w[canceled]
+      @layout = nil
       @subscriptions = []
       @rules = []
+    end
+
+    def layout=(value)
+      @layout = RecordingStudio::Layout.accept(value)
     end
 
     def assign_collection_defaults

@@ -7,8 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-05
+
 ### Changed
-- Dummy FlatPack pin is `v0.1.213`. Dummy page nav and the FlatPack docs button use Button `href:`. Attribution inspector headings and the home “What’s working” card title use SectionTitle (`size: :md`, `spacing: :none`).
+- Recording Studio floor is `>= 6.3.0`. Views is `>= 0.12.0`. Development and dummy pins: Recording Studio `v6.3.0`, Accessible `v0.24.1`, Trashable `v0.12.2`, Metrics `v0.7.2`, Cache `v0.6.2`, Root Switchable `v0.11.5`, Logs `v0.7.3`, Views `v0.12.0`, FlatPack `v0.1.341`. Stripe stays `require: false` at tag `v0.18.0` so its engine does not boot.
+- Engine controllers call `recording_studio_layout { RecordingStudioConversions.configuration.layout }`. `configuration.layout` defaults to `nil` and is validated by `RecordingStudio::Layout.accept`. A `nil` setting follows `RecordingStudio.configuration.layout`, then `recording_studio/default_layout`.
+- Root and dummy Rails locks are `8.1.4.1`. `rack` is `>= 3.2.8`, `loofah` `>= 2.25.3`, `nokogiri` `>= 1.19.5`, `rails-html-sanitizer` `>= 1.7.2`, and dummy `net-ssh` `>= 7.3.5`. `view_component` arrives at `>= 4.14` through FlatPack `v0.1.341`.
+
+### Removed
+- Engine `HomeController` ping and the engine root route that returned `head :ok` with no authentication.
+- Template leftovers: `bin/rename_gem`, `UPDATE_SUMMARY.md`, `MIGRATION_NOTES.md`, and dummy `hello_controller.js`.
+
+### Upgrade notes
+- Require Recording Studio `>= 6.3.0` and Views `>= 0.12.0`. Pin FlatPack `v0.1.341` so `view_component` is `>= 4.14`. Do not pin `view_component` yourself.
+- Drop `layout "application"` or `include RecordingStudio::UsesDefaultLayout` on a host controller that renders these screens. Call `recording_studio_layout`. Leave `RecordingStudioConversions.configuration.layout` unset to keep the shared default. Set a layout name, `false`, or `->(controller:) { ... }` for this gem alone.
+- The engine no longer answers `GET /recording_studio_conversions`. Collection and consent stay at their POST routes. Rebuild Tailwind after the FlatPack tag bump.
 
 ## [0.6.0] - 2026-10-30
 
@@ -167,7 +180,8 @@ New addons copied from this template are born on Recording Studio 4.x.
 - Comprehensive README and documentation
 - Basic test suite with Minitest
 
-[Unreleased]: https://github.com/bowerbird-app/RecordingStudio_conversions/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/bowerbird-app/RecordingStudio_conversions/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/bowerbird-app/RecordingStudio_conversions/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/bowerbird-app/RecordingStudio_conversions/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/bowerbird-app/RecordingStudio_conversions/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/bowerbird-app/RecordingStudio_conversions/compare/v0.3.0...v0.4.0

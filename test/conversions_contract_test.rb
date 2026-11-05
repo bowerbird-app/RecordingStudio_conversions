@@ -233,7 +233,7 @@ class ConversionsContractTest < Minitest::Test
     keys = payload.scan(/"([a-z_]+)" =>/).flatten
     fixture = File.read(File.expand_path("dummy/test/integration/conversions_core_test.rb", __dir__))
 
-    assert_equal "0.13.0", spec.version.to_s
+    assert_equal "0.18.0", spec.version.to_s
     assert_equal %w[amount currency invoice_id billing_reason subscription_status first_payment], keys
     assert_includes payload, '"amount" => snapshot["amount_paid"]'
     assert_includes model, "extras[:amount] = extras[:amount].to_i unless extras[:amount].nil?"
