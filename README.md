@@ -4,13 +4,13 @@ Records provider-neutral conversion occurrences for Recording Studio.
 
 ## What's Included
 
-- **Recording Studio** 4.x gem pinned and configured
+- **Recording Studio** 6.x gem pinned and configured
 - **Devise** authentication with a pre-seeded admin user
 - **Workspace**, **Folder**, and **Page** recordables seeded into the dummy host app
 - **FlatPack** UI component library for all views
 - **Dummy app** (`test/dummy/`) with a FlatPack sign-in screen, a home page on Recording Studio's default layout, mounted Recording Studio routes, and FlatPack's built-in rounded theme
 
-Authenticated dummy pages use Recording Studio's shared default layout (`RecordingStudio::UsesDefaultLayout`) plus FlatPack CSS and JS. Devise keeps its own sign-in layout. Dummy `/docs/*` pages stay in the dummy app as a host-app sandbox; they are not the product README.
+Authenticated dummy pages use Recording Studio's shared default layout (`recording_studio_layout`) plus FlatPack CSS and JS. Devise keeps its own sign-in layout. Dummy `/docs/*` pages stay in the dummy app as a host-app sandbox; they are not the product README.
 
 ## Quick Start
 
@@ -131,7 +131,7 @@ Use core `RecordingStudio::Hooks` and `RecordingStudio::Services::BaseService`. 
 All views use FlatPack ViewComponents. Available components include:
 
 - `FlatPack::Button::Component` — Buttons (`:primary`, `:secondary`, `:ghost`)
-- `FlatPack::Card::Component` — Cards (`:default`, `:elevated`, `:outlined`)
+- `FlatPack::Card::Component` — Cards (`background:`, `border:`, `variant:`)
 - `FlatPack::Alert::Component` — Alerts (`:success`, `:error`, `:warning`, `:info`)
 - `FlatPack::Badge::Component` — Status badges
 - `FlatPack::Table::Component` — Data tables
@@ -291,16 +291,16 @@ The default attribution resolver reads the one acquisition user the host recorde
 | Rails           | 8.1+    |
 | PostgreSQL      | 16      |
 | TailwindCSS     | 4       |
-| RecordingStudio | 4.x (`~> 4.2` in the gemspec; dummy GitHub tag `v4.7.0`) |
-| Accessible      | dummy GitHub tag `v0.18.0` |
-| Trashable       | dummy GitHub tag `v0.11.0` (`require: false`; query-only via Accessible) |
-| Root Switchable | dummy GitHub tag `v0.9.0` |
-| Cache           | dummy GitHub tag `v0.5.0` |
-| Metrics         | dummy GitHub tag `v0.2.0` |
-| Views           | dummy GitHub tag `v0.3.0` |
-| Logs            | dummy GitHub tag `v0.4.0` |
-| Stripe          | dummy GitHub tag `v0.13.0` (`require: false`) |
-| FlatPack        | dummy GitHub tag `v0.1.213` |
+| RecordingStudio | 6.x (`>= 6.3.0` in the gemspec; dummy GitHub tag `v6.3.0`) |
+| Accessible      | dummy GitHub tag `v0.24.1` |
+| Trashable       | dummy GitHub tag `v0.12.2` (`require: false`; query-only via Accessible) |
+| Root Switchable | dummy GitHub tag `v0.11.5` |
+| Cache           | dummy GitHub tag `v0.6.2` |
+| Metrics         | dummy GitHub tag `v0.7.2` |
+| Views           | dummy GitHub tag `v0.12.0` |
+| Logs            | dummy GitHub tag `v0.7.3` |
+| Stripe          | dummy GitHub tag `v0.18.0` (`require: false`) |
+| FlatPack        | dummy GitHub tag `v0.1.341` |
 | Devise          | latest  |
 
-The dummy Gemfile keeps `github:` sources so Bundler can fetch those gems. The gemspec still pins `recording_studio` to `~> 4.2` so copied addons declare the core dependency even when GitHub is the fetch source.
+The dummy Gemfile keeps `github:` sources so Bundler can fetch those gems. The gemspec pins `recording_studio` to `>= 6.3.0` and `recording_studio_views` to `>= 0.12.0` so copied addons declare those dependencies even when GitHub is the fetch source.

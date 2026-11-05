@@ -4,17 +4,19 @@ require "test_helper"
 
 class RecordingStudioConversionsTest < Minitest::Test
   def test_version_matches_release
-    assert_equal "0.6.0", ::RecordingStudioConversions::VERSION
+    assert_equal "0.7.0", ::RecordingStudioConversions::VERSION
   end
 
   def test_engine_exists
     assert_kind_of Class, ::RecordingStudioConversions::Engine
   end
 
-  def test_gemspec_pins_recording_studio_4_2
+  def test_gemspec_pins_recording_studio_6_3
     gemspec = File.read(File.expand_path("../recording_studio_conversions.gemspec", __dir__))
 
-    assert_includes gemspec, 'spec.add_dependency "recording_studio", "~> 4.2"'
+    assert_includes gemspec, 'spec.add_dependency "recording_studio", ">= 6.3.0"'
+    assert_includes gemspec, 'spec.add_dependency "recording_studio_views", ">= 0.12.0"'
+    refute_includes gemspec, "~> 4.2"
     refute_includes gemspec, "recording_studio_stripe"
     refute_includes gemspec, "recording_studio_attachable"
     refute_includes gemspec, "recording_studio_library"
@@ -23,9 +25,9 @@ class RecordingStudioConversionsTest < Minitest::Test
   def test_root_gemfile_pins_stripe_v0_13_without_loading_it
     gemfile = File.read(File.expand_path("../Gemfile", __dir__))
 
-    assert_includes gemfile, 'github: "bowerbird-app/flatpack", tag: "v0.1.213", require: false'
-    refute_includes gemfile, 'tag: "v0.1.196"'
-    assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_stripe", tag: "v0.13.0", require: false'
+    assert_includes gemfile, 'github: "bowerbird-app/flatpack", tag: "v0.1.341", require: false'
+    refute_includes gemfile, 'tag: "v0.1.213"'
+    assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_stripe", tag: "v0.18.0", require: false'
     refute_includes gemfile, "recording_studio_attachable"
     refute_includes gemfile, "recording_studio_library"
   end
@@ -54,25 +56,29 @@ class RecordingStudioConversionsTest < Minitest::Test
     assert_includes install_script, "fetch-skills.sh"
   end
 
-  def test_dummy_gemfile_pins_verified_4x_github_tags
+  def test_dummy_gemfile_pins_verified_6x_github_tags
     gemfile = File.read(File.expand_path("dummy/Gemfile", __dir__))
 
-    assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio", tag: "v4.7.0"'
+    assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio", tag: "v6.3.0"'
+    refute_includes gemfile, 'tag: "v4.7.0"'
     refute_includes gemfile, 'tag: "v4.6.0"'
     refute_includes gemfile, 'tag: "v4.5.0"'
-    assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_accessible", tag: "v0.18.0"'
-    assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_trashable", tag: "v0.11.0", require: false'
+    assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_accessible", tag: "v0.24.1"'
+    assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_trashable", tag: "v0.12.2", require: false'
+    refute_includes gemfile, 'RecordingStudio_accessible", tag: "v0.18.0"'
+    refute_includes gemfile, 'tag: "v0.11.0"'
     refute_includes gemfile, 'tag: "v0.10.0"'
     refute_includes gemfile, 'tag: "v0.17.0"'
     refute_includes gemfile, 'tag: "v0.15.0"'
     refute_includes gemfile, 'tag: "v0.10.1"'
-    assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_root_switchable", tag: "v0.9.0"'
-    assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_cache", tag: "v0.5.0"'
-    refute_includes gemfile, 'tag: "v0.6.0"'
+    assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_root_switchable", tag: "v0.11.5"'
+    assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_cache", tag: "v0.6.2"'
+    refute_includes gemfile, 'tag: "v0.9.0"'
+    refute_includes gemfile, 'tag: "v0.5.0"'
     refute_includes gemfile, 'tag: "v0.5.1"'
-    assert_includes gemfile, 'github: "bowerbird-app/flatpack", tag: "v0.1.213"'
-    refute_includes gemfile, 'tag: "v0.1.196"'
-    assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_stripe", tag: "v0.13.0", require: false'
+    assert_includes gemfile, 'github: "bowerbird-app/flatpack", tag: "v0.1.341"'
+    refute_includes gemfile, 'tag: "v0.1.213"'
+    assert_includes gemfile, 'github: "bowerbird-app/RecordingStudio_stripe", tag: "v0.18.0", require: false'
     refute_includes gemfile, "recording_studio_attachable"
     refute_includes gemfile, "recording_studio_library"
     refute_includes gemfile, "recording_studio/v3.0.0"
@@ -139,15 +145,33 @@ class RecordingStudioConversionsTest < Minitest::Test
     refute File.exist?(File.expand_path("../lib/recording_studio_conversions/services/example_service.rb", __dir__))
     refute File.exist?(File.expand_path("../lib/recording_studio_conversions/capabilities/example.rb", __dir__))
     refute File.directory?(File.expand_path("../docs/gem_template", __dir__))
+    refute File.exist?(File.expand_path("../bin/rename_gem", __dir__))
+    refute File.exist?(File.expand_path("../UPDATE_SUMMARY.md", __dir__))
+    refute File.exist?(File.expand_path("../MIGRATION_NOTES.md", __dir__))
+    refute File.exist?(File.expand_path("../app/controllers/recording_studio_conversions/home_controller.rb", __dir__))
+    refute File.exist?(File.expand_path("dummy/app/javascript/controllers/hello_controller.js", __dir__))
+  end
+
+  def test_engine_uses_recording_studio_layout
+    controller_source = File.read(
+      File.expand_path("../app/controllers/recording_studio_conversions/application_controller.rb", __dir__)
+    )
+    routes = File.read(File.expand_path("../config/routes.rb", __dir__))
+
+    assert_includes controller_source, "recording_studio_layout { RecordingStudioConversions.configuration.layout }"
+    refute_includes controller_source, 'layout "application"'
+    refute_includes controller_source, "UsesDefaultLayout"
+    refute_includes routes, "home#index"
   end
 
   def test_dummy_app_uses_recording_studio_default_layout
     application_controller_path = File.expand_path("dummy/app/controllers/application_controller.rb", __dir__)
     controller_source = File.read(application_controller_path)
 
-    assert_includes controller_source, "include RecordingStudio::UsesDefaultLayout"
-    assert_includes controller_source, '"recording_studio/default_layout"'
-    assert_includes controller_source, "devise_controller? ? \"application\""
+    assert_includes controller_source, "recording_studio_layout"
+    assert_includes controller_source, "RecordingStudio::DEFAULT_LAYOUT"
+    assert_includes controller_source, 'devise_controller? ? "application"'
+    refute_includes controller_source, "UsesDefaultLayout"
     refute_includes controller_source, "flat_pack_sidebar"
     refute File.exist?(File.expand_path("dummy/app/views/layouts/flat_pack_sidebar.html.erb", __dir__))
     refute File.exist?(File.expand_path("dummy/app/views/layouts/flat_pack/_sidebar.html.erb", __dir__))
@@ -213,19 +237,20 @@ class RecordingStudioConversionsTest < Minitest::Test
     readme = File.read(File.expand_path("../README.md", __dir__))
 
     assert_includes readme, "RecordingStudio"
-    assert_includes readme, "dummy GitHub tag `v4.7.0`"
+    assert_includes readme, "dummy GitHub tag `v6.3.0`"
     refute_includes readme, "dummy GitHub tag `v0.1.196`"
+    refute_includes readme, "dummy GitHub tag `v4.7.0`"
     refute_includes readme, "dummy GitHub tag `v4.6.0`"
     refute_includes readme, "dummy GitHub tag `v4.5.0`"
-    assert_includes readme, "dummy GitHub tag `v0.1.213`"
-    assert_includes readme, "dummy GitHub tag `v0.18.0`"
-    assert_includes readme, "dummy GitHub tag `v0.11.0`"
+    assert_includes readme, "dummy GitHub tag `v0.1.341`"
+    assert_includes readme, "dummy GitHub tag `v0.24.1`"
+    assert_includes readme, "dummy GitHub tag `v0.12.2`"
     refute_includes readme, "dummy GitHub tag `v0.10.0`"
     refute_includes readme, "dummy GitHub tag `v0.17.0`"
     refute_includes readme, "dummy GitHub tag `v0.15.0`"
     refute_includes readme, "dummy GitHub tag `v0.10.1`"
-    assert_includes readme, "dummy GitHub tag `v0.9.0`"
-    assert_includes readme, "dummy GitHub tag `v0.5.0`"
+    assert_includes readme, "dummy GitHub tag `v0.11.5`"
+    assert_includes readme, "dummy GitHub tag `v0.6.2`"
     refute_includes readme, "dummy GitHub tag `v0.8.0`"
     refute_includes readme, "dummy GitHub tag `v0.6.0`"
     refute_includes readme, "dummy GitHub tag `v0.5.1`"
@@ -252,6 +277,8 @@ class RecordingStudioConversionsTest < Minitest::Test
     assert_includes view_source, "recording_studio_conversions:install"
     assert_includes view_source, "recording_studio_conversions:migrations"
     refute_includes view_source, "gem_template:install"
+    refute_includes view_source, "bin/rename_gem"
+    refute_includes view_source, "FlatPack::Card::Component.new(style:"
     assert_includes view_source, "FlatPack::Card::Component"
     assert_includes view_source, "dummy_page_nav"
     assert_includes view_source, "FlatPack::SectionTitle::Component"
@@ -327,5 +354,6 @@ class RecordingStudioConversionsTest < Minitest::Test
     view_path = File.expand_path("../app/views/recording_studio_conversions/home/index.html.erb", __dir__)
 
     refute File.exist?(view_path)
+    refute File.exist?(File.expand_path("../app/controllers/recording_studio_conversions/home_controller.rb", __dir__))
   end
 end

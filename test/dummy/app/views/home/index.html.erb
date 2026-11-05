@@ -8,7 +8,7 @@
   ) %>
 
   <div class="grid gap-6 lg:grid-cols-2">
-    <%= render FlatPack::Card::Component.new(style: :default) do |card| %>
+    <%= render FlatPack::Card::Component.new(background: :default) do |card| %>
       <% card.header do %>
         <%= render FlatPack::SectionTitle::Component.new(
           title: "What's working",
@@ -30,7 +30,7 @@
       <% end %>
     <% end %>
 
-    <%= render FlatPack::Card::Component.new(style: :outlined) do |card| %>
+    <%= render FlatPack::Card::Component.new(background: :none, border: :default) do |card| %>
       <% card.header do %>
         <%= render FlatPack::PageTitle::Component.new(
           title: "Next steps",
@@ -42,7 +42,7 @@
 
       <% card.body do %>
         <ol class="space-y-3 text-sm leading-6 list-decimal pl-5">
-          <li>Run <code>bin/rename_gem your_addon_name</code> when you are ready to rename the engine.</li>
+          <li>Grant advertising, then open this page with a click id on the query string.</li>
           <li>Replace the sample migration with your addon tables and install them into the host app.</li>
           <li>Configure Recording Studio recordable types and capabilities in the host app initializer.</li>
           <li>Use the dummy app to validate layout, asset scanning, and authentication flows.</li>
@@ -50,7 +50,7 @@
       <% end %>
     <% end %>
 
-    <%= render FlatPack::Card::Component.new(style: :outlined) do |card| %>
+    <%= render FlatPack::Card::Component.new(background: :none, border: :default) do |card| %>
       <% card.header do %>
         <%= render FlatPack::PageTitle::Component.new(
           title: "FlatPack usage",
@@ -77,7 +77,7 @@
       <% end %>
     <% end %>
 
-    <%= render FlatPack::Card::Component.new(style: :default) do |card| %>
+    <%= render FlatPack::Card::Component.new(background: :default) do |card| %>
       <% card.header do %>
         <%= render FlatPack::PageTitle::Component.new(
           title: "Install flow",

@@ -6,6 +6,10 @@ RecordingStudioConversions.configure do |config|
   config.user_class_name = "User"
   config.raise_errors = false
 
+  # Leave layout unset to use Recording Studio's default layout. Set a layout
+  # name, false, or ->(controller:) { ... } for this gem alone.
+  # config.layout = nil
+
   # Policy: a paid invoice on a canceled subscription is not a conversion.
   # Blank or missing subscription_status stays unknown and can still match.
   # incomplete_expired and unpaid are not excluded unless you add them.

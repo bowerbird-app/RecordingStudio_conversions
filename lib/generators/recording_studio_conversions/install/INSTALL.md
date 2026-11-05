@@ -9,6 +9,6 @@ If you use Tailwind CSS:
 
 To use the engine:
 1. Start your Rails server
-2. Visit http://localhost:3000/recording_studio_conversions
+2. Opt into browser collection with `recording_studio_conversions_tags` and post to the mounted collection and consent routes
 
 ===============================================================================
