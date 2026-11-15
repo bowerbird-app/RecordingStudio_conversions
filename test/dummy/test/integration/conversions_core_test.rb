@@ -298,12 +298,16 @@ class ConversionsCoreTest < ActiveSupport::TestCase
   end
 
   test "an anonymous page view keeps the payload visitor and recording" do
-    root = create_root
+    actor = create_user(confirmed_at: Time.current)
+    workspace = Workspace.create!(name: "Workspace #{SecureRandom.hex(4)}")
+    root = RecordingStudio.create_root_recording!(workspace, actor: actor)
+    RecordingStudioAccessible.bootstrap_owner_access!(recording: root, actor: actor)
     page = RecordingStudio.record!(
       action: "created",
       recordable: Page.new(title: "Pricing #{SecureRandom.hex(4)}"),
       root_recording: root,
-      parent_recording: root
+      parent_recording: root,
+      actor: actor
     ).recording
     RecordingStudioConversions.configuration.conversion :pricing_view do
       source "views.recorded"
@@ -345,7 +349,9 @@ class ConversionsCoreTest < ActiveSupport::TestCase
   end
 
   def create_root
-    RecordingStudio.root_recording_for(Workspace.create!(name: "Workspace #{SecureRandom.hex(4)}"))
+    actor = create_user(confirmed_at: Time.current)
+    workspace = Workspace.create!(name: "Workspace #{SecureRandom.hex(4)}")
+    RecordingStudio.create_root_recording!(workspace, actor: actor)
   end
 
   def publish_registration(user)
@@ -429,13 +435,13 @@ class ConversionsConcurrencyTest < ActiveSupport::TestCase
 
   test "concurrent deliveries of one stripe id leave a single row" do
     workspace = Workspace.create!(name: "Workspace #{SecureRandom.hex(4)}")
-    @root = RecordingStudio.root_recording_for(workspace)
     @user = User.create!(
       email: "person-#{SecureRandom.hex(4)}@example.com",
       password: "Password123",
       password_confirmation: "Password123",
       confirmed_at: Time.current
     )
+    @root = RecordingStudio.create_root_recording!(workspace, actor: @user)
     RecordingStudioConversions.record_acquisition_user!(root_recording_id: @root.id, user_id: @user.id)
     RecordingStudioConversions.configuration.conversion :trial do
       source "stripe.trial_started"

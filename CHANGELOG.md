@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-11-15
+
+### Changed
+- Recording Studio floor is `>= 7.0`, `< 8.0`. Views is `>= 0.14.0`, `< 1.0`. Development and dummy pins: Recording Studio `v7.0.0`, Views `v0.14.0`, Logs `v0.8.0`, Accessible `v0.44.0`, Trashable `v0.17.0`, Metrics `v0.9.0`, Cache `v0.6.3`, Root Switchable `v0.16.0`, FlatPack `v0.1.376`. Stripe stays `require: false` at `v0.29.0` so its engine does not boot. That tag accepts Recording Studio 7 and Accessible 0.44. `v0.18.0` requires Accessible `~> 0.24`.
+- Dummy seeds create roots with `RecordingStudio.create_root_recording!(recordable, actor:)`. `root_recording_for` only finds. The dummy `authorize_write` allows a persisted user to start a root (`root_recording` is nil on that call). Later writes still need an Accessible role on the root.
+- Dummy schema includes core's event `root_recording_id` column, its foreign key, and its indexes. The migration is `20261114090000_add_root_recording_id_to_recording_studio_events`.
+- Seeds look up kept children with `Recording.kept`. Trashable 0.17 removed `recording_studio_trashable_kept_sql`.
+- Root and dummy lock `puma` at `>= 8.1.0`. Dummy also locks `msgpack` at `>= 1.8.7`.
+
+### Upgrade notes
+- Require Recording Studio 7.0 or newer, below 8, and Views 0.14 or newer, below 1.0.
+- Paths that created a root by calling `root_recording_for` call `create_root_recording!(recordable, actor:)`. Lookup call sites keep `root_recording_for` and handle nil.
+- `create_root_recording!` runs `authorize_write` with `recording`, `root_recording`, and `parent_recording` all nil. Allow that create in the host authorizer. Do not set `allow_unauthorized_writes`.
+- Copy core migration `20261114090000_add_root_recording_id_to_recording_studio_events` when events do not yet store `root_recording_id`.
+- Replace `Recording.recording_studio_trashable_kept_sql` with `Recording.kept`.
+- This gem does not depend on Admin. Hosts that mount Admin 2.16 drop `site_admin_recording_resolver` and use `access_recording_resolver`.
+
 ## [0.7.0] - 2026-11-05
 
 ### Changed
@@ -180,7 +197,8 @@ New addons copied from this template are born on Recording Studio 4.x.
 - Comprehensive README and documentation
 - Basic test suite with Minitest
 
-[Unreleased]: https://github.com/bowerbird-app/RecordingStudio_conversions/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/bowerbird-app/RecordingStudio_conversions/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/bowerbird-app/RecordingStudio_conversions/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/bowerbird-app/RecordingStudio_conversions/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/bowerbird-app/RecordingStudio_conversions/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/bowerbird-app/RecordingStudio_conversions/compare/v0.4.0...v0.5.0

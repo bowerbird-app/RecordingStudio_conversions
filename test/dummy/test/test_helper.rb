@@ -8,6 +8,7 @@ require "rails/test_help"
 class ActiveSupport::TestCase
   def grant_workspace_access!(actor, workspace)
     recording = RecordingStudio.root_recording_for(workspace)
+    recording ||= RecordingStudio.create_root_recording!(workspace, actor: actor)
     return recording if RecordingStudioAccessible.authorized?(actor: actor, recording: recording, role: :view)
 
     result = RecordingStudioAccessible.bootstrap_owner_access!(recording: recording, actor: actor)

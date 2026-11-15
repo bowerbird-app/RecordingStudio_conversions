@@ -17,31 +17,29 @@ class RecordingStudioDeclarationsTest < ActiveSupport::TestCase
   test "root recordable creates a root recording" do
     workspace = Workspace.create!(name: unique_name("Root Workspace"))
 
-    root_recording = RecordingStudio.root_recording_for(workspace)
+    assert_nil RecordingStudio.root_recording_for(workspace)
+
+    root_recording = RecordingStudio.create_root_recording!(workspace, actor: actor)
 
     assert_predicate root_recording, :persisted?
     assert_equal workspace, root_recording.recordable
     assert_nil root_recording.parent_recording_id
     assert_equal root_recording.id, root_recording.root_recording_id
+    assert_equal root_recording, RecordingStudio.root_recording_for(workspace)
   end
 
   test "allowed child can be recorded under a workspace root" do
-    root_recording = RecordingStudio.root_recording_for(Workspace.create!(name: unique_name("Child Workspace")))
+    root_recording = create_workspace_root(unique_name("Child Workspace"))
     folder = Folder.new(name: unique_name("Allowed Folder"))
 
-    event = RecordingStudio.record!(
-      action: "created",
-      recordable: folder,
-      root_recording: root_recording,
-      parent_recording: root_recording
-    )
+    recording = record_child(folder, root_recording, root_recording)
 
-    assert_equal folder, event.recording.recordable
-    assert_equal root_recording, event.recording.parent_recording
+    assert_equal folder, recording.recordable
+    assert_equal root_recording, recording.parent_recording
   end
 
   test "page can be recorded under allowed workspace and folder parents" do
-    root_recording = RecordingStudio.root_recording_for(Workspace.create!(name: unique_name("Page Workspace")))
+    root_recording = create_workspace_root(unique_name("Page Workspace"))
     folder_recording = record_child(Folder.new(name: unique_name("Page Folder")), root_recording, root_recording)
 
     workspace_page_recording = record_child(
@@ -59,12 +57,12 @@ class RecordingStudioDeclarationsTest < ActiveSupport::TestCase
     folder = Folder.create!(name: unique_name("Root Rejected Folder"))
 
     assert_raises(RecordingStudio::RootNotAllowed) do
-      RecordingStudio.root_recording_for(folder)
+      RecordingStudio.create_root_recording!(folder, actor: actor)
     end
   end
 
   test "parentless child under an existing root is invalid" do
-    root_recording = RecordingStudio.root_recording_for(Workspace.create!(name: unique_name("Parentless Workspace")))
+    root_recording = create_workspace_root(unique_name("Parentless Workspace"))
     folder = Folder.create!(name: unique_name("Parentless Folder"))
     recording = RecordingStudio::Recording.new(root_recording: root_recording, recordable: folder)
 
@@ -73,7 +71,7 @@ class RecordingStudioDeclarationsTest < ActiveSupport::TestCase
   end
 
   test "page cannot be recorded under another page" do
-    root_recording = RecordingStudio.root_recording_for(Workspace.create!(name: unique_name("Invalid Page Workspace")))
+    root_recording = create_workspace_root(unique_name("Invalid Page Workspace"))
     page_recording = record_child(Page.new(title: unique_name("Parent Page")), root_recording, root_recording)
 
     error = assert_raises(RecordingStudio::InvalidParent) do
@@ -92,12 +90,37 @@ class RecordingStudioDeclarationsTest < ActiveSupport::TestCase
   private
 
   def record_child(recordable, root_recording, parent_recording)
+    ensure_owner!(root_recording)
     RecordingStudio.record!(
       action: "created",
       recordable: recordable,
       root_recording: root_recording,
-      parent_recording: parent_recording
+      parent_recording: parent_recording,
+      actor: actor
     ).recording
+  end
+
+  def create_workspace_root(name)
+    RecordingStudio.create_root_recording!(Workspace.create!(name: name), actor: actor)
+  end
+
+  def ensure_owner!(root_recording)
+    return if RecordingStudioAccessible.authorized?(actor: actor, recording: root_recording, role: :edit)
+
+    result = RecordingStudioAccessible.bootstrap_owner_access!(recording: root_recording, actor: actor)
+    return if result.success?
+    return if RecordingStudioAccessible.authorized?(actor: actor, recording: root_recording, role: :edit)
+
+    raise result.error
+  end
+
+  def actor
+    @actor ||= User.create!(
+      email: "declarations-#{SecureRandom.hex(4)}@example.com",
+      password: "Password123",
+      password_confirmation: "Password123",
+      confirmed_at: Time.current
+    )
   end
 
   def unique_name(prefix)
