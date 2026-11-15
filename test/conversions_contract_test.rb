@@ -202,7 +202,7 @@ class ConversionsContractTest < Minitest::Test
   end
 
   def test_v0_13_invoice_payload_stores_amount_paid_under_amount
-    # RecordingStudio_stripe v0.13.0 DomainEvent#instrument_payload publishes
+    # RecordingStudio_stripe DomainEvent#instrument_payload still publishes
     # integer amount copied from the invoice snapshot's amount_paid.
     paid = envelope(
       "stripe.invoice_paid",
@@ -233,7 +233,7 @@ class ConversionsContractTest < Minitest::Test
     keys = payload.scan(/"([a-z_]+)" =>/).flatten
     fixture = File.read(File.expand_path("dummy/test/integration/conversions_core_test.rb", __dir__))
 
-    assert_equal "0.18.0", spec.version.to_s
+    assert_equal "0.29.0", spec.version.to_s
     assert_equal %w[amount currency invoice_id billing_reason subscription_status first_payment], keys
     assert_includes payload, '"amount" => snapshot["amount_paid"]'
     assert_includes model, "extras[:amount] = extras[:amount].to_i unless extras[:amount].nil?"

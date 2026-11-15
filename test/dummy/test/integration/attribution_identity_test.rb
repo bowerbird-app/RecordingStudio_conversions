@@ -489,7 +489,9 @@ class AttributionIdentityTest < ActiveSupport::TestCase
   end
 
   def create_root
-    RecordingStudio.root_recording_for(Workspace.create!(name: "Workspace #{SecureRandom.hex(4)}"))
+    actor = create_user(confirmed_at: Time.current)
+    workspace = Workspace.create!(name: "Workspace #{SecureRandom.hex(4)}")
+    RecordingStudio.create_root_recording!(workspace, actor: actor)
   end
 
   def publish_registration(user)

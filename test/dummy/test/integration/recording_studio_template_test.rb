@@ -27,6 +27,7 @@ class RecordingStudioTemplateTest < ActiveSupport::TestCase
     connection = ActiveRecord::Base.connection
 
     assert connection.column_exists?(:recording_studio_recordings, :root_recording_id)
+    assert connection.column_exists?(:recording_studio_events, :root_recording_id)
     assert connection.table_exists?(:recording_studio_accesses)
     assert connection.table_exists?(:recording_studio_access_constraints)
     assert connection.table_exists?(:recording_studio_access_rules)
@@ -61,6 +62,7 @@ class RecordingStudioTemplateTest < ActiveSupport::TestCase
     assert_equal 3, Workspace.count
     admin = User.find_by!(email: "admin@admin.com")
     assert RecordingStudioAccessible.authorized?(actor: admin, recording: root_recording, role: :view)
+    assert RecordingStudioAccessible.authorized?(actor: admin, recording: root_recording, role: :edit)
     assert RecordingStudioAccessible.authorized?(actor: admin, recording: accessible_root_recording, role: :view)
     assert RecordingStudioAccessible.authorized?(actor: admin, recording: private_root_recording, role: :view)
 
