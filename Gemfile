@@ -6,20 +6,20 @@ source "https://rubygems.org"
 gemspec
 
 # recording_studio is not published to RubyGems; resolve the gemspec pin from GitHub.
-gem "recording_studio", github: "bowerbird-app/RecordingStudio", tag: "v7.0.0"
-gem "recording_studio_views", github: "bowerbird-app/RecordingStudio_views", tag: "v0.14.0"
+gem "recording_studio", github: "bowerbird-app/RecordingStudio", tag: "v7.7.2"
+gem "recording_studio_views", github: "bowerbird-app/RecordingStudio_views", tag: "v0.14.2"
 # Views depends on Logs, which is not published to RubyGems.
-gem "recording_studio_logs", github: "bowerbird-app/RecordingStudio_logs", tag: "v0.8.0"
+gem "recording_studio_logs", github: "bowerbird-app/RecordingStudio_logs", tag: "v0.8.2"
 # Stripe DomainEvent#instrument_payload still publishes integer amount from
 # amount_paid. require: false keeps that engine, and the migrations it appends,
-# out of boot. v0.29.0 is the tag whose gemspec accepts Recording Studio 7 and
-# Accessible 0.44. The other pins exist because Stripe's gemspec needs them and
+# out of boot. v0.33.1 is the tag whose gemspec accepts Recording Studio 7 and
+# Accessible 0.55. The other pins exist because Stripe's gemspec needs them and
 # they are not published to RubyGems.
-gem "flat_pack", github: "bowerbird-app/flatpack", tag: "v0.1.376", require: false
-gem "recording_studio_accessible", github: "bowerbird-app/RecordingStudio_accessible", tag: "v0.44.0", require: false
-gem "recording_studio_metrics", github: "bowerbird-app/RecordingStudio_metrics", tag: "v0.9.0", require: false
-gem "recording_studio_stripe", github: "bowerbird-app/RecordingStudio_stripe", tag: "v0.29.0", require: false
-gem "recording_studio_trashable", github: "bowerbird-app/RecordingStudio_trashable", tag: "v0.17.0", require: false
+gem "flat_pack", github: "bowerbird-app/flatpack", tag: "v0.1.380", require: false
+gem "recording_studio_accessible", github: "bowerbird-app/RecordingStudio_accessible", tag: "v0.55.0", require: false
+gem "recording_studio_metrics", github: "bowerbird-app/RecordingStudio_metrics", tag: "v0.9.2", require: false
+gem "recording_studio_stripe", github: "bowerbird-app/RecordingStudio_stripe", tag: "v0.33.1", require: false
+gem "recording_studio_trashable", github: "bowerbird-app/RecordingStudio_trashable", tag: "v1.2.3", require: false
 
 gem "devise"
 gem "puma", ">= 8.1.0"

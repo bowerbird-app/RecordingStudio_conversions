@@ -291,16 +291,16 @@ The default attribution resolver reads the one acquisition user the host recorde
 | Rails           | 8.1+    |
 | PostgreSQL      | 16      |
 | TailwindCSS     | 4       |
-| RecordingStudio | 7.x (`>= 7.0`, `< 8.0` in the gemspec; dummy GitHub tag `v7.0.0`) |
-| Accessible      | dummy GitHub tag `v0.44.0` |
-| Trashable       | dummy GitHub tag `v0.17.0` (`require: false`; query-only via Accessible) |
-| Root Switchable | dummy GitHub tag `v0.16.0` |
-| Cache           | dummy GitHub tag `v0.6.3` |
-| Metrics         | dummy GitHub tag `v0.9.0` |
-| Views           | `>= 0.14.0`, `< 1.0` in the gemspec; dummy GitHub tag `v0.14.0` |
-| Logs            | dummy GitHub tag `v0.8.0` |
-| Stripe          | dummy GitHub tag `v0.29.0` (`require: false`) |
-| FlatPack        | dummy GitHub tag `v0.1.376` |
+| RecordingStudio | 7.x (`>= 7.0`, `< 8.0` in the gemspec; dummy GitHub tag `v7.7.2`) |
+| Accessible      | dummy GitHub tag `v0.55.0` |
+| Trashable       | dummy GitHub tag `v1.2.3` (`require: false`; query-only via Accessible) |
+| Root Switchable | dummy GitHub tag `v0.16.1` |
+| Cache           | dummy GitHub tag `v0.7.1` |
+| Metrics         | dummy GitHub tag `v0.9.2` |
+| Views           | `>= 0.14.0`, `< 1.0` in the gemspec; dummy GitHub tag `v0.14.2` |
+| Logs            | dummy GitHub tag `v0.8.2` |
+| Stripe          | dummy GitHub tag `v0.33.1` (`require: false`) |
+| FlatPack        | dummy GitHub tag `v0.1.380` |
 | Devise          | latest  |
 
-The dummy Gemfile keeps `github:` sources so Bundler can fetch those gems. The gemspec pins `recording_studio` to `>= 7.0`, `< 8.0` and `recording_studio_views` to `>= 0.14.0`, `< 1.0` so copied addons declare those dependencies even when GitHub is the fetch source. Create a root with `RecordingStudio.create_root_recording!(recordable, actor:)`. `root_recording_for` only finds an existing root.
+The dummy Gemfile keeps `github:` sources so Bundler can fetch those gems. The gemspec pins `recording_studio` to `>= 7.0`, `< 8.0` and `recording_studio_views` to `>= 0.14.0`, `< 1.0` so copied addons declare those dependencies even when GitHub is the fetch source. Create a root with `RecordingStudio.create_root_recording!(recordable, actor:)`. `root_recording_for` only finds an existing root. Hosts MUST run the Recording Studio 7.4, 7.5 and 7.7 migrations.
