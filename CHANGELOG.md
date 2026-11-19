@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-11-19
+
+### Changed
+- Development and dummy pins: Recording Studio `v7.0.0` → `v7.7.2`, Views `v0.14.0` → `v0.14.2`, Logs `v0.8.0` → `v0.8.2`, Accessible `v0.44.0` → `v0.55.0`, Trashable `v0.17.0` → `v1.2.3`, Metrics `v0.9.0` → `v0.9.2`, FlatPack `v0.1.376` → `v0.1.380`. Stripe stays `require: false` at `v0.33.1` (was `v0.29.0`). Dummy-only pins: Root Switchable `v0.16.0` → `v0.16.1`, Cache `v0.6.3` → `v0.7.1`. Gemspec floors are unchanged (`recording_studio` `>= 7.0`, `< 8.0`; `recording_studio_views` `>= 0.14.0`, `< 1.0`).
+
+### Upgrade notes
+- Hosts MUST run the Recording Studio 7.4, 7.5 and 7.7 migrations.
+
 ## [0.8.0] - 2026-11-15
 
 ### Changed
@@ -197,7 +205,8 @@ New addons copied from this template are born on Recording Studio 4.x.
 - Comprehensive README and documentation
 - Basic test suite with Minitest
 
-[Unreleased]: https://github.com/bowerbird-app/RecordingStudio_conversions/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/bowerbird-app/RecordingStudio_conversions/compare/v0.8.1...HEAD
+[0.8.1]: https://github.com/bowerbird-app/RecordingStudio_conversions/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/bowerbird-app/RecordingStudio_conversions/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/bowerbird-app/RecordingStudio_conversions/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/bowerbird-app/RecordingStudio_conversions/compare/v0.5.0...v0.6.0
